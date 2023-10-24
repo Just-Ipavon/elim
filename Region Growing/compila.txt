@@ -1,0 +1,1 @@
+g++ otsu.cpp -o otsu $(pkg-config --cflags --libs opencv)

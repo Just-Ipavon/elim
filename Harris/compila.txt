@@ -1,0 +1,1 @@
+g++ Harris.cpp -o Harris $(pkg-config --cflags --libs opencv)

@@ -1,0 +1,1 @@
+g++ splitAndMerge.cpp -o splitAndMerge $(pkg-config --cflags --libs opencv)
