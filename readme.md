@@ -30,7 +30,7 @@ Questo progetto implementa una versione estesa dell'algoritmo di sogliatura di O
 
 ### Region Growing
 
-Questo progetto implementa l'algoritmo di crescita delle regioni. Il codice sorgente si trova nel file `regionGrowing.cpp`.
+Questo progetto implementa l'algoritmo di Region Growing, una tecnica di segmentazione delle immagini basata sulla crescita di regioni a partire da pixel semina (seed pixels). Il codice sorgente si trova nel file `regionGrowing.cpp`.
 
 ### Canny
 
