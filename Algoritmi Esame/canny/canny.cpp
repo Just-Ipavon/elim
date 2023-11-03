@@ -61,7 +61,7 @@ void Canny(const Mat src, Mat& dst){ // passo la matrice sorgente e la matrice d
     
 }
 
-int main( int argc, char** argv ) {
+int main( int argc, char** argv ) { // leggo l'immagine in input e la passo alla funzione Canny
 	Mat src = imread( argv[1], IMREAD_GRAYSCALE );
 	if(src.empty()) return -1;
 	Mat dst;
