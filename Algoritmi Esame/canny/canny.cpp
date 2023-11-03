@@ -37,7 +37,7 @@ void Canny(const Mat src, Mat& dst){ // passo la matrice sorgente e la matrice d
                 r = magnitude.at<uchar>(y+1,x+1);
             }
             if (mag < r || mag < q)
-                magnitude.at<uchar>(y,x) = 0;
+                magnitude.at<uchar>(y,x) = 0; // se la magnitudo è minore di q o r imposto il pixel a 0
         }
         for( int i=1; i<magnitude.rows-1;i++){ // applico il thresholding
             for( int j = 1; j<magnitude.cols-1; j++){
