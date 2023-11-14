@@ -1,69 +1,51 @@
 #include <opencv2/opencv.hpp>
 #include <stdlib.h>
 
-using namespace std;
 using namespace cv;
+using namespace std;
 
-void houghCircles(Mat& src, Mat& dst, int cannyLTH, int cannyHTH, int HoughTH, int Rmin, int Rmax){
-    //passo1
-    vector<vector<vector<int>>>
-        votes(src.rows, vector<vector<int>>(src.cols, vector<int>(Rmax-Rmin+1,0)));
+#define DEG2RAD CV_PI / 180
+const int minRadius = 22;
+const int maxRadius = 25;
+const int th1 = 100;
+const int th2 = 112;
+const int hth = 123;
 
-    //passo2
-
-    Mat gsrc, edges;
-    GaussianBlur(src,gsrc,Size(7,7),0,0);
-    Canny(gsrc,edges,cannyLTH,cannyHTH);
-
-    //passo3
-    for (int x = 0; x < edges.rows; x++){
-        for (int y = 0; y < edges.cols; y++){
-            if(edges.at<uchar>(x,y) == 255)
-            for (int r = Rmin; r < Rmax; r++){
-                for (int theta = 0; theta < 360; theta++){
-                    int a = y -r*cos(theta*CV_PI/180);
-                    int b = x -r*sin(theta*CV_PI/180);
-                    if(a>=0 && a<edges.cols && b>=0 && b<edges.rows)
-                        votes[b][a][r-Rmin]++;
-                }
-                
-            }
-            
-        }
-        
-    }
-
-    //passo4
-    dst = src.clone();
-    for (int r = Rmin; r < Rmax; r++){
-        for (int b = 0; b < edges.rows; b++){
-            for (int a = 0; a < edges.cols; a++){
-                if(votes[b][a][r-Rmin]> HoughTH){
-                    circle(dst, Point(a,b), 3, Scalar(0), 2,8,0);
-                    circle(dst, Point(a,b), r, Scalar(0), 2,8,0);
-                }
-            }
-            
-        }
-        
-    }
+void houghCircles(const Mat src, Mat& dst) {
+	src.copyTo(dst);
+	Mat gauss, edges, src_gray;
+	GaussianBlur(src, gauss, Size(5,5), 0, 0);
+	const int sz[] = {gauss.rows, gauss.cols, maxRadius - minRadius};
+	Mat votes(3, sz, CV_32F, Scalar(0));
+	cvtColor(gauss, src_gray, CV_RGB2GRAY);
+	Canny(src_gray, edges, th1, th2);
+	imshow("edges", edges);
+	for (int y=0; y<edges.rows; y++)
+		for (int x=0; x<edges.cols; x++)
+			if (edges.at<uchar>(y,x) == 255)
+				for (int radius=minRadius; radius<maxRadius; radius++)
+					for (int theta=0; theta<360; theta++) {
+						int a = x - radius * cos(theta * DEG2RAD);
+						int b = y - radius * sin(theta * DEG2RAD);
+						if (a>=0 && b>=0 && a<src.cols && b<src.rows)
+							votes.at<float>(b,a,radius-minRadius)++;
+					}
+	for (int radius=minRadius; radius<maxRadius; radius++)
+		for (int i=0; i<src_gray.rows; i++)
+			for (int j=0; j<src_gray.cols; j++)
+				if (votes.at<float>(i,j,radius-minRadius) >= hth) {
+					circle(dst, Point(j,i), 1, Scalar(255,0,0), 2, LINE_AA);
+					circle(dst, Point(j,i), radius, Scalar(255,0,0), 2, LINE_AA);
+				}
 }
 
-int main(int argc, char** argv){
-
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if(src.empty()) return -1;
-
-    Mat dst;
-    int cannyLTH = 150;
-    int cannyHTH = 230;
-    int HoughTH = 130;
-    int Rmin = 40, Rmax = 130;
-    houghCircles(src,dst,cannyLTH,cannyHTH,HoughTH,Rmin,Rmax);
-
-
-    imshow("src",src);
-    imshow("dst",dst);
-    waitKey(0);
-    return 0;
+int main( int argc, char** argv ) {
+	Mat src = imread( argv[1] );
+	if(src.empty()) return -1;
+	Mat dst;
+	houghCircles(src,dst);
+	imshow("src", src);
+	imshow("dst", dst);
+	waitKey(0);
+	return 0;
 }

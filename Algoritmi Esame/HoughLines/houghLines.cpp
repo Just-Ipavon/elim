@@ -4,8 +4,14 @@
 using namespace std;
 using namespace cv;
 
+
+#define DEG2RAD CV_PI / 180
+const int alpha = 1000;
+const int cth1 = 50;
+const int cth2 = 150;
+const int hth = 100;
+
 void polarToCartesian(double rho, int theta, Point& p1, Point& p2){
-    int alpha = 1000;
 
     int x0 = cvRound(rho*cos(theta));
 	int y0 = cvRound(rho*sin(theta));
@@ -17,7 +23,7 @@ void polarToCartesian(double rho, int theta, Point& p1, Point& p2){
 	p2.y = cvRound(y0 - alpha*(cos(theta)));
 }
 
-void houghLines(Mat& src, Mat& dst, int cannyLTH, int cannyHTH, int HoughTH){
+void houghLines(Mat& src, Mat& dst){
 
     //1
     int maxDist = hypot(src.rows, src.cols);
@@ -26,7 +32,7 @@ void houghLines(Mat& src, Mat& dst, int cannyLTH, int cannyHTH, int HoughTH){
     //2
     Mat gsrc, edges;
     GaussianBlur(src,gsrc,Size(3,3),0,0);
-    Canny(gsrc,edges,cannyLTH,cannyHTH);
+    Canny(gsrc,edges,cth1,cth2);
 
     //3
     double rho;
@@ -44,7 +50,7 @@ void houghLines(Mat& src, Mat& dst, int cannyLTH, int cannyHTH, int HoughTH){
     Point p1, p2;
     for(size_t i=0; i<votes.size(); i++)
         for(size_t j=0; j<votes[i].size(); j++)
-            if(votes[i][j] >= HoughTH){
+            if(votes[i][j] >= hth){
                 rho = i-maxDist;
                 theta = j-90;
                 polarToCartesian(rho,theta,p1,p2);
@@ -61,7 +67,7 @@ int main(int argc, char** argv){
     int cannyLTH = 50;
     int cannyHTH = 150;
     int HoughTH = 100;
-    houghLines(src,dst,cannyLTH,cannyHTH,HoughTH);
+    houghLines(src,dst);
 
 
     imshow("src",src);
