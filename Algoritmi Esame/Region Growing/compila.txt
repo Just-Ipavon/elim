@@ -1,1 +1,1 @@
-g++ otsu.cpp -o otsu $(pkg-config --cflags --libs opencv)
+g++ regionGrowing.cpp -o regionGrowing $(pkg-config --cflags --libs opencv)

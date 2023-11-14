@@ -1,119 +1,76 @@
-#include <iostream>
-#include <stack>
 #include <opencv2/opencv.hpp>
+#include <stdlib.h>
+#include <stack>
 
-using std::cout;
-using std::endl;
-using std::stack;
+using namespace cv;
+using namespace std;
 
-void grow(cv::Mat& src, cv::Mat& dest, cv::Mat& mask, cv::Point seed, int threshold);
-
-// parameters
-const int threshold = 200;
-const uchar max_region_num = 100;
-const double min_region_area_factor = 0.01;
-const cv::Point PointShift2D[8] =
-{
-    cv::Point(1, 0),
-    cv::Point(1, -1),
-    cv::Point(0, -1),
-    cv::Point(-1, -1),
-    cv::Point(-1, 0),
-    cv::Point(-1, 1),
-    cv::Point(0, 1),
-    cv::Point(1, 1)
+const int maxRegionNumber = 100;
+const float minRegionAreaFactor = 0.01f;
+const int th = 204;
+const Point pointShift2D[8] = {
+	Point(-1,-1),
+	Point(-1, 0),
+	Point(-1, 1),
+	Point( 0,-1),
+	Point( 0, 1),
+	Point( 1,-1),
+	Point( 1, 0),
+	Point( 1, 1),
 };
 
-
-int main(int argc, char **argv) {
-    // 1. read source image
-    cv::Mat src = cv::imread(argv[1]);
-    if (src.cols > 500 || src.rows > 500) {
-        cv::resize(src, src, cv::Size(0, 0), 0.5, 0.5); // resize for speed
-    }
-    cv::namedWindow("src", cv::WINDOW_NORMAL);
-    cv::imshow("src", src);
-
-    // 2. convert to grey (now it's unnecessary)
-//    cv::Mat src;
-//    cv::cvtColor(src, src_grey, CV_BGR2GRAY);
-//    cv::namedWindow("grey", cv::WINDOW_NORMAL);
-//    cv::imshow("grey", src_grey);
-
-    // 3. ready for seed grow
-    int min_region_area = int(min_region_area_factor * src.cols * src.rows);  // small region will be ignored
-    cv::namedWindow("mask", cv::WINDOW_NORMAL);
-
-    // "dest" records all regions using different padding number
-    // 0 - undetermined, 255 - ignored, other number - determined
-    uchar padding = 1;  // use which number to pad in "dest"
-    cv::Mat dest = cv::Mat::zeros(src.rows, src.cols, CV_8UC1);
-
-    // "mask" records current region, always use "1" for padding
-    cv::Mat mask = cv::Mat::zeros(src.rows, src.cols, CV_8UC1);
-
-    // 4. traversal the whole image, apply "seed grow" in undetermined pixels
-    for (int x=0; x<src.cols; ++x) {
-        for (int y=0; y<src.rows; ++y) {
-            if (dest.at<uchar>(cv::Point(x, y)) == 0) {
-                grow(src, dest, mask, cv::Point(x, y), threshold);
-
-                int mask_area = (int)cv::sum(mask).val[0];  // calculate area of the region that we get in "seed grow"
-                if (mask_area > min_region_area) {
-                    dest = dest + mask * padding;   // record new region to "dest"
-                    cv::imshow("mask", mask*255);
-                    cv::waitKey();
-                    if(++padding > max_region_num) {
-                        printf("run out of max_region_num...");
-                        return -1;
-
-                    }
-                } else {
-                    dest = dest + mask * 255;   // record as "ignored"
-                }
-                mask = mask - mask;     // zero mask, ready for next "seed grow"
-            }
-        }
-    }
-    return 0;
+void grow(const Mat src, const Mat dst, Mat& mask, Point seed) {
+	stack<Point> front;
+	front.push(seed);
+	while (!front.empty()) {
+		Point center = front.top();
+		mask.at<uchar>(center) = 1;
+		front.pop();
+		for (int i=0; i<8; i++) {
+			Point neigh = center + pointShift2D[i];
+			if ( neigh.x < 0 || neigh.x > src.cols || neigh.y < 0 || neigh.y > src.rows )
+				continue;
+			else {
+				int delta = cvRound( pow( src.at<Vec3b>(center)[0] - src.at<Vec3b>(neigh)[0], 2 ) +
+								     pow( src.at<Vec3b>(center)[1] - src.at<Vec3b>(neigh)[1], 2 ) +
+								     pow( src.at<Vec3b>(center)[2] - src.at<Vec3b>(neigh)[2], 2 ) );
+				if (delta < th && !dst.at<uchar>(neigh) && !mask.at<uchar>(neigh))
+					front.push(neigh);
+			}
+		}
+	}
 }
 
-void grow(cv::Mat& src, cv::Mat& dest, cv::Mat& mask, cv::Point seed, int threshold) {
-    /* apply "seed grow" in a given seed
-     * Params:
-     *   src: source image
-     *   dest: a matrix records which pixels are determined/undtermined/ignored
-     *   mask: a matrix records the region found in current "seed grow"
-     */
-    stack<cv::Point> point_stack;
-    point_stack.push(seed);
+void regionGrowing(const Mat src, Mat& dst) {
+	dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
+	Mat mask = Mat::zeros(src.rows, src.cols, CV_8UC1);
+	const int minRegionArea = int(src.rows * src.cols * minRegionAreaFactor);
+	int label = 0;
+	for (int i=0; i<src.rows; i++)
+		for (int j=0; j<src.cols; j++)
+			if (dst.at<uchar>(i,j) == 0) {
+				grow(src, dst, mask, Point(j,i));
+				if (sum(mask).val[0] > minRegionArea) {
+					imshow("mask", mask * 255);
+					waitKey(0);
+					dst += mask * label;
+					if (++label > maxRegionNumber) {
+						cout << "Run out of the region number..." << endl;
+						exit(EXIT_FAILURE);
+					}
+				} else 
+					dst += mask * 255;
+				mask -= mask;
+			}
+}
 
-    while(!point_stack.empty()) {
-        cv::Point center = point_stack.top();
-        mask.at<uchar>(center) = 1;
-        point_stack.pop();
-
-        for (int i=0; i<8; ++i) {
-            cv::Point estimating_point = center + PointShift2D[i];
-            if (estimating_point.x < 0
-                || estimating_point.x > src.cols-1
-                || estimating_point.y < 0
-                || estimating_point.y > src.rows-1) {
-                // estimating_point should not out of the range in image
-                continue;
-            } else {
-//                uchar delta = (uchar)abs(src.at<uchar>(center) - src.at<uchar>(estimating_point));
-                // delta = (R-R')^2 + (G-G')^2 + (B-B')^2
-                int delta = int(pow(src.at<cv::Vec3b>(center)[0] - src.at<cv::Vec3b>(estimating_point)[0], 2)
-                                + pow(src.at<cv::Vec3b>(center)[1] - src.at<cv::Vec3b>(estimating_point)[1], 2)
-                                + pow(src.at<cv::Vec3b>(center)[2] - src.at<cv::Vec3b>(estimating_point)[2], 2));
-                if (dest.at<uchar>(estimating_point) == 0
-                    && mask.at<uchar>(estimating_point) == 0
-                    && delta < threshold) {
-                    mask.at<uchar>(estimating_point) = 1;
-                    point_stack.push(estimating_point);
-                }
-            }
-        }
-    }
+int main( int argc, char** argv ) {
+	Mat src = imread( argv[1] );
+	if(src.empty()) return -1;
+	Mat dst;
+	regionGrowing(src, dst);
+	imshow("src", src);
+	imshow("dst", dst);
+	waitKey(0);
+	return 0;
 }
