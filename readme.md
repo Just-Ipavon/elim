@@ -4,6 +4,10 @@ Questo repository contiene vari progetti relativi all'elaborazione delle immagin
 
 ## Progetti
 
+### Canny
+
+Questo progetto implementa l'algoritmo di rilevamento dei bordi di Canny. Il codice sorgente si trova nel file `canny.cpp`.
+
 ### Harris
 
 Questo progetto implementa l'algoritmo di rilevamento degli angoli di Harris. Il codice sorgente si trova nel file `Harris.cpp`.
@@ -32,9 +36,9 @@ Questo progetto implementa una versione estesa dell'algoritmo di sogliatura di O
 
 Questo progetto implementa l'algoritmo di Region Growing, una tecnica di segmentazione delle immagini basata sulla crescita di regioni a partire da pixel semina (seed pixels). Il codice sorgente si trova nel file `regionGrowing.cpp`.
 
-### Canny
+### Split and Merge
 
-Questo progetto implementa l'algoritmo di rilevamento dei bordi di Canny. Il codice sorgente si trova nel file `canny.cpp`.
+Questo progetto implementa l'algoritmo di Split and Merge, un algoritmo di segmentazione delle immagini che divide l'immagine in regioni omogenee (split) e poi unisce le regioni adiacenti che soddisfano un criterio di omogeneità (merge). Il codice sorgente si trova nel file `splitAndMerge.cpp`.
 
 ## Come eseguire i progetti
 
