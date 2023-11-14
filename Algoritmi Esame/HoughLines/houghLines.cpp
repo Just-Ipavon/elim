@@ -64,12 +64,7 @@ int main(int argc, char** argv){
     if(src.empty()) return -1;
 
     Mat dst;
-    int cannyLTH = 50;
-    int cannyHTH = 150;
-    int HoughTH = 100;
     houghLines(src,dst);
-
-
     imshow("src",src);
     imshow("dst",dst);
     waitKey(0);
