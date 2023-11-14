@@ -46,4 +46,4 @@ Ogni progetto include un file `compila.txt` che contiene le istruzioni per la co
 
 ## Immagini di test
 
-Ogni progetto include un'immagine `lena.jpg` utilizzata per testare gli algoritmi.
+Ogni progetto include un'immagine da utilizzare per testare gli algoritmi.
