@@ -68,7 +68,7 @@ void segment(Mat& dst, vector<Scalar> center, vector<vector<Point>> cluster) {
 				dst.at<Vec3b>(point)[i] = center.at(label)[i]; 
 }
 
-void myKmeans(const Mat src, Mat& dst) {
+void Kmeans(const Mat src, Mat& dst) {
 	src.copyTo(dst);
 	vector<Scalar> center;
 	vector<vector<Point>> cluster;
@@ -90,7 +90,7 @@ int main( int argc, char** argv ) {
 	Mat src = imread( argv[1] );
 	if(src.empty()) return -1;
 	Mat dst;
-	myKmeans(src, dst);
+	Kmeans(src, dst);
 	imshow("src", src);
 	imshow("dst", dst);
 	waitKey(0);
