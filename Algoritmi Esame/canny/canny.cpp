@@ -66,9 +66,11 @@ void Canny(const Mat src, Mat &dst) {                               // passo la 
 }
 
 int main(int argc, char **argv) {  // leggo l'immagine in input e la passo alla funzione Canny
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty())
-        return -1;
+    String imageName("lena.jpg");
+     if( argc > 1){
+        imageName = argv[1];
+    }
+    Mat src = imread(imageName, IMREAD_GRAYSCALE);
     Mat dst;
     Canny(src, dst);
     imshow("src", src);
