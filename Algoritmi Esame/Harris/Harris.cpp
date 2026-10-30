@@ -37,7 +37,7 @@ void harris(const Mat& src, Mat& dst) {
     for (int y = 0; y < R.rows; y++)
         for (int x = 0; x < R.cols; x++)
             if (R.at<float>(y, x) > th)
-                circle(dst, Point(x, y), 5, Scalar(0), 2);
+                circle(dst, Point(x, y), 5, Scalar(255), 2);
 }
 
 int main(int argc, char** argv) {

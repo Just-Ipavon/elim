@@ -64,6 +64,8 @@ void regionGrowing(const Mat& src, Mat& dst) {
 int main(int argc, char** argv) {
     Mat src = imread(argv[1], IMREAD_COLOR);
     if (src.empty()) return -1;
+    if (src.rows > 500 || src.cols > 500)
+        resize(src, src, Size(0, 0), 0.5, 0.5);  // dimezzo le immagini grandi (come il prof)
 
     Mat dst;
     regionGrowing(src, dst);

@@ -44,8 +44,10 @@ TNode* split(Mat& img, Rect R) {
     return root;
 }
 
+// unisco solo foglie (regioni omogenee) con medie vicine
 bool similar(TNode* a, TNode* b) {
-    return abs(a->mean - b->mean) < mth;
+    bool leaves = !a->children[0] && !b->children[0];
+    return leaves && abs(a->mean - b->mean) < mth;
 }
 
 void addMerged(TNode* root, int i) {
