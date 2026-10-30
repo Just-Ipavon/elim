@@ -1,80 +1,75 @@
-#include <stdlib.h>
-
 #include <opencv2/opencv.hpp>
 
-using namespace cv;
 using namespace std;
+using namespace cv;
 
-// imposto i valori del threshold e della dimensione del kernel
+const int lth = 40;  // soglia bassa
+const int hth = 90;  // soglia alta
 
-const int th1 = 20;
-const int th2 = 50;
-const int ksize = 3;
-
-void Canny(const Mat src, Mat &dst) {                               // passo la matrice sorgente e la matrice destinazione
-    Mat gauss, dx, dy, magnitude, phase;                            // creo le matrici per la gaussiana, le derivate, la magnitudo e la fase
-    GaussianBlur(src, gauss, Size(5, 5), 0, 0);                     // applico la gaussiana
-    Sobel(gauss, dx, CV_32FC1, 1, 0, ksize);                        // applico la derivata in x CV_32FC1 è il tipo di dato 32 bit 1 canale float
-    Sobel(gauss, dy, CV_32FC1, 0, 1, ksize);                        // applico la derivata in y
-    cv::magnitude(dx, dy, magnitude);                               // calcolo la magnitudo
-    normalize(magnitude, magnitude, 0, 255, NORM_MINMAX, CV_8UC1);  // normalizzo la magnitudo 8 bit unsigned 1 canale
-    cv::phase(dx, dy, phase, true);                                 // calcolo la fase
-    uchar q, r;                                                     // creo due variabili di tipo unsigned char
-    for (int y = 1; y < magnitude.rows - 1; y++) {
-        for (int x = 1; x < magnitude.cols - 1; x++) {
-            float angle = phase.at<float>(y, x) > 180 ? phase.at<float>(y, x) - 360 : phase.at<float>(y, x);  // calcolo l'angolo
-            uchar mag = magnitude.at<uchar>(y, x);                                                            // calcolo la magnitudo
-            if ((angle <= -157.5 || angle > 157.5) || (angle > -22.5 && angle <= 22.5)) {                     // controllo se il gradiente è orizzontale
-                q = magnitude.at<uchar>(y, x - 1);
-                r = magnitude.at<uchar>(y, x + 1);
-            } else if ((angle > -157.5 && angle <= -112.5) || (angle > 22.5 && angle <= 67.5)) {  // controllo se il gradiente è diagonale 45
-                q = magnitude.at<uchar>(y + 1, x - 1);
-                r = magnitude.at<uchar>(y - 1, x + 1);
-            } else if ((angle > -67.5 && angle <= 67.5)) {  // controllo se il gradiente è verticale
-                q = magnitude.at<uchar>(y + 1, x);
-                r = magnitude.at<uchar>(y - 1, x);
-            } else if ((angle > 67.5 && angle <= 112.5) || (angle > -112.5 && angle <= -67.5)) {  // controllo se il gradiente è diagonale -45
-                q = magnitude.at<uchar>(y - 1, x - 1);
-                r = magnitude.at<uchar>(y + 1, x + 1);
-            }
-            if (mag < r || mag < q)
-                magnitude.at<uchar>(y, x) = 0;  // se la magnitudo è minore di q o r imposto il pixel a 0
+// 4) Non-maxima suppression: tengo il pixel solo se è un massimo lungo la direzione del gradiente
+void nonMaxSuppression(const Mat& mag, const Mat& angle, Mat& nms) {
+    nms = Mat::zeros(mag.size(), CV_8U);
+    for (int y = 1; y < mag.rows - 1; y++)
+        for (int x = 1; x < mag.cols - 1; x++) {
+            float a = fmod(angle.at<float>(y, x), 180);  // [0,360) -> [0,180)
+            int dy, dx;                                  // passo verso il vicino lungo il gradiente
+            if (a < 22.5 || a >= 157.5) { dy = 0; dx = 1;  }  // orizzontale
+            else if (a < 67.5)          { dy = 1; dx = 1;  }  // diagonale 45
+            else if (a < 112.5)         { dy = 1; dx = 0;  }  // verticale
+            else                        { dy = 1; dx = -1; }  // diagonale 135
+            uchar m = mag.at<uchar>(y, x);
+            if (m >= mag.at<uchar>(y + dy, x + dx) && m >= mag.at<uchar>(y - dy, x - dx))
+                nms.at<uchar>(y, x) = m;
         }
-    }
-    for (int i = 1; i < magnitude.rows - 1; i++) {  // applico il thresholding
-            for (int j = 1; j < magnitude.cols - 1; j++) {
-                uchar px = magnitude.at<uchar>(i, j);
-                if (px >= th2)
-                    px = 255;  // se il pixel è maggiore del threshold alto lo imposto a 255
-                else if (px < th1)
-                    px = 0;  // se il pixel è minore del threshold basso lo imposto a 0
-                else {
-                    bool sn = false;  // se il pixel è compreso tra i due threshold controllo se è un pixel di bordo
-                    for (int x = -1; x <= 1 && !sn; x++)
-                        for (int y = -1; y <= 1 && !sn; y++)
-                            if (magnitude.at<uchar>(i + x, j + y) > th2)
-                                sn = true;
-                    if (sn)
-                        px = 255;
-                    else
-                        px = 0;
-                }
-                magnitude.at<uchar>(i, j) = px;  // imposto il pixel
-            }
-        }
-        magnitude.copyTo(dst);
 }
 
-int main(int argc, char **argv) {  // leggo l'immagine in input e la passo alla funzione Canny
-    String imageName("lena.jpg");
-     if( argc > 1){
-        imageName = argv[1];
-    }
-    Mat src = imread(imageName, IMREAD_GRAYSCALE);
+// 5) Isteresi: un pixel forte è bordo e "accende" i vicini deboli
+void hysteresis(const Mat& nms, Mat& dst) {
+    dst = Mat::zeros(nms.size(), CV_8U);
+    for (int y = 1; y < nms.rows - 1; y++)
+        for (int x = 1; x < nms.cols - 1; x++)
+            if (nms.at<uchar>(y, x) > hth) {
+                dst.at<uchar>(y, x) = 255;
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++) {
+                        uchar v = nms.at<uchar>(y + dy, x + dx);
+                        if (v > lth && v < hth)
+                            dst.at<uchar>(y + dy, x + dx) = 255;
+                    }
+            }
+}
+
+void myCanny(const Mat& src, Mat& dst) {
+    // 1) Smoothing gaussiano
+    Mat gauss;
+    GaussianBlur(src, gauss, Size(5, 5), 0, 0);
+
+    // 2) Derivate con Sobel
+    Mat Dx, Dy;
+    Sobel(gauss, Dx, CV_32F, 1, 0, 3);
+    Sobel(gauss, Dy, CV_32F, 0, 1, 3);
+
+    // 3) Magnitudo (normalizzata a 0-255) e fase in gradi
+    Mat mag, angle;
+    magnitude(Dx, Dy, mag);
+    normalize(mag, mag, 0, 255, NORM_MINMAX, CV_8U);
+    phase(Dx, Dy, angle, true);
+
+    // 4) NMS   5) Isteresi
+    Mat nms;
+    nonMaxSuppression(mag, angle, nms);
+    hysteresis(nms, dst);
+}
+
+int main(int argc, char** argv) {
+    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
+    if (src.empty()) return -1;
+
     Mat dst;
-    Canny(src, dst);
+    myCanny(src, dst);
+
     imshow("src", src);
-    imshow("dst", dst);
+    imshow("canny", dst);
     waitKey(0);
     return 0;
 }

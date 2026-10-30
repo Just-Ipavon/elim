@@ -1,72 +1,55 @@
 #include <opencv2/opencv.hpp>
-#include <stdlib.h>
 
 using namespace std;
 using namespace cv;
 
+const int cth1 = 90;  // soglie di Canny
+const int cth2 = 160;
+const int hth = 90;   // voti minimi per accettare una retta
 
-#define DEG2RAD CV_PI / 180
-const int alpha = 1000;
-const int cth1 = 50;
-const int cth2 = 150;
-const int hth = 100;
+void houghLines(const Mat& src, Mat& dst) {
+    // 1) Smoothing + bordi con Canny
+    Mat gauss, edges;
+    GaussianBlur(src, gauss, Size(5, 5), 0, 0);
+    Canny(gauss, edges, cth1, cth2);
 
-void polarToCartesian(double rho, int theta, Point& p1, Point& p2){
-
-    int x0 = cvRound(rho*cos(theta));
-	int y0 = cvRound(rho*sin(theta));
-
-	p1.x = cvRound(x0 + alpha*(-sin(theta)));
-	p1.y = cvRound(y0 + alpha*(cos(theta)));
-
-	p2.x = cvRound(x0 - alpha*(-sin(theta)));
-	p2.y = cvRound(y0 - alpha*(cos(theta)));
-}
-
-void houghLines(Mat& src, Mat& dst){
-
-    //1
+    // 2) Accumulatore: righe = rho in [-maxDist, maxDist], colonne = theta in [0, 180)
     int maxDist = hypot(src.rows, src.cols);
-    vector<vector<int>> votes(maxDist*2, vector<int>(180, 0));
+    Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);
 
-    //2
-    Mat gsrc, edges;
-    GaussianBlur(src,gsrc,Size(3,3),0,0);
-    Canny(gsrc,edges,cth1,cth2);
-
-    //3
-    double rho;
-    int theta;
-    for(int x=0; x<edges.rows; x++)
-        for(int y=0; y<edges.cols; y++)
-            if(edges.at<uchar>(x,y) == 255)
-                for(theta = 0; theta <= 180; theta++){
-                    rho = round(y*cos(theta-90) + x*sin(theta-90)) + maxDist;
-                    votes[rho][theta]++;
+    // 3) Votazione: ogni punto di bordo vota per tutte le rette che ci passano
+    for (int y = 0; y < edges.rows; y++)
+        for (int x = 0; x < edges.cols; x++)
+            if (edges.at<uchar>(y, x) == 255)
+                for (int t = 0; t < 180; t++) {
+                    double theta = t * CV_PI / 180;
+                    int rho = cvRound(x * cos(theta) + y * sin(theta)) + maxDist;
+                    votes.at<int>(rho, t)++;
                 }
 
-    //4 - drawing
-    dst=src.clone();
-    Point p1, p2;
-    for(size_t i=0; i<votes.size(); i++)
-        for(size_t j=0; j<votes[i].size(); j++)
-            if(votes[i][j] >= hth){
-                rho = i-maxDist;
-                theta = j-90;
-                polarToCartesian(rho,theta,p1,p2);
-                line(dst,p1,p2,Scalar(0,0,255),2,LINE_AA);
+    // 4) Disegno le rette con abbastanza voti (da polari a due punti cartesiani)
+    dst = src.clone();
+    for (int r = 0; r < votes.rows; r++)
+        for (int t = 0; t < votes.cols; t++)
+            if (votes.at<int>(r, t) >= hth) {
+                double rho = r - maxDist;
+                double theta = t * CV_PI / 180;
+                double x0 = rho * cos(theta), y0 = rho * sin(theta);  // punto della retta più vicino all'origine
+                Point p1(cvRound(x0 - maxDist * sin(theta)), cvRound(y0 + maxDist * cos(theta)));
+                Point p2(cvRound(x0 + maxDist * sin(theta)), cvRound(y0 - maxDist * cos(theta)));
+                line(dst, p1, p2, Scalar(127), 2);
             }
 }
 
-int main(int argc, char** argv){
-
-    Mat src = imread(argv[1],IMREAD_GRAYSCALE);
-    if(src.empty()) return -1;
+int main(int argc, char** argv) {
+    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
+    if (src.empty()) return -1;
 
     Mat dst;
-    houghLines(src,dst);
-    imshow("src",src);
-    imshow("dst",dst);
+    houghLines(src, dst);
+
+    imshow("src", src);
+    imshow("hough lines", dst);
     waitKey(0);
     return 0;
 }

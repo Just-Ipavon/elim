@@ -1,60 +1,43 @@
-#include <stdlib.h>
 #include <opencv2/opencv.hpp>
 
 using namespace std;
 using namespace cv;
 
-#define KERNEL Size(7, 7)
-const int ksize = 11;
-const int th = 100;
-const float k = 0.04f;
+const float k = 0.04f;  // costante di Harris (0.04 - 0.06)
+const int th = 100;     // soglia su R normalizzato 0-255
 
-void circleCorners(Mat& src, Mat& dst) {
-    for (int i = 0; i < src.rows; i++) {
-        for (int j = 0; j < src.cols; j++) {
-            if ((int)src.at<float>(i, j) > th)
-                circle(dst, Point(j, i), 5, Scalar(0), 1);
-        }
-    }
-}
-
-void harris(Mat& src, Mat& dst) {
-    // 1
+void harris(const Mat& src, Mat& dst) {
+    // 1) Derivate con Sobel
     Mat Dx, Dy;
-    Sobel(src, Dx, CV_32FC1, 1, 0, ksize);
-    Sobel(src, Dy, CV_32FC1, 0, 1, ksize);
+    Sobel(src, Dx, CV_32F, 1, 0, 3);
+    Sobel(src, Dy, CV_32F, 0, 1, 3);
 
-    // 2
-    Mat Dx2, Dy2, DxDy;
+    // 2) Prodotti delle derivate
+    Mat Dx2, Dy2, Dxy;
     pow(Dx, 2, Dx2);
     pow(Dy, 2, Dy2);
-    multiply(Dx, Dy, DxDy);
+    multiply(Dx, Dy, Dxy);
 
-    // 3-4
-    Mat C00, C01, C10, C11;
-    GaussianBlur(Dx2, C00, KERNEL, 2, 0);
-    GaussianBlur(Dy2, C11, KERNEL, 0, 2);
-    GaussianBlur(DxDy, C01, KERNEL, 2, 2);
-    C10 = C01;
+    // 3) Smoothing gaussiano -> elementi della matrice C = [Sx2 Sxy; Sxy Sy2]
+    Mat Sx2, Sy2, Sxy;
+    GaussianBlur(Dx2, Sx2, Size(7, 7), 2, 2);
+    GaussianBlur(Dy2, Sy2, Size(7, 7), 2, 2);
+    GaussianBlur(Dxy, Sxy, Size(7, 7), 2, 2);
 
-    // 5
-    Mat det, trace, trace2, R, PPD, PSD;
+    // 4) R = det(C) - k * trace(C)^2
+    Mat SxSy, Sxy2, trace2;
+    multiply(Sx2, Sy2, SxSy);
+    multiply(Sxy, Sxy, Sxy2);
+    pow(Sx2 + Sy2, 2, trace2);
+    Mat R = (SxSy - Sxy2) - k * trace2;
 
-    multiply(C00, C11, PPD);
-    multiply(C01, C10, PSD);
-    det = PPD - PSD;
-
-    trace = C00 + C11;
-    pow(trace, 2, trace2);
-
-    R = det - k * trace2;
-
-    // 6
-    normalize(R, R, 0, 255, NORM_MINMAX, CV_32FC1);
-    convertScaleAbs(R, dst);
-
-    // 7
-    circleCorners(R, dst);
+    // 5) Normalizzo R e cerchio i punti sopra soglia
+    normalize(R, R, 0, 255, NORM_MINMAX, CV_32F);
+    dst = src.clone();
+    for (int y = 0; y < R.rows; y++)
+        for (int x = 0; x < R.cols; x++)
+            if (R.at<float>(y, x) > th)
+                circle(dst, Point(x, y), 5, Scalar(0), 2);
 }
 
 int main(int argc, char** argv) {
@@ -65,8 +48,7 @@ int main(int argc, char** argv) {
     harris(src, dst);
 
     imshow("src", src);
-    imshow("dst", dst);
+    imshow("harris", dst);
     waitKey(0);
-
     return 0;
 }

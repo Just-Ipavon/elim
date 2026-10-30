@@ -1,44 +1,42 @@
-#include <stdlib.h>
-
 #include <opencv2/opencv.hpp>
 
 using namespace std;
 using namespace cv;
 
-vector<double> normalizedHistogram(Mat& src) {
-    vector<double> his(256, 0);
-    for (int i = 0; i < src.rows; i++)
-        for (int j = 0; j < src.cols; j++)
-            his[src.at<uchar>(i, j)]++;
-
+// p[i] = probabilità del livello di grigio i
+vector<double> normalizedHistogram(const Mat& src) {
+    vector<double> p(256, 0.0);
+    for (int y = 0; y < src.rows; y++)
+        for (int x = 0; x < src.cols; x++)
+            p[src.at<uchar>(y, x)]++;
     for (int i = 0; i < 256; i++)
-        his[i] /= src.rows * src.cols;
-
-    return his;
+        p[i] /= src.rows * src.cols;
+    return p;
 }
 
-int otsu(Mat& src) {
-    vector<double> his = normalizedHistogram(src);
+int otsu(const Mat& src) {
+    // 1) Istogramma normalizzato
+    vector<double> p = normalizedHistogram(src);
 
-    double gMean = 0.0f;
+    // 2) Media globale mG
+    double mG = 0.0;
     for (int i = 0; i < 256; i++)
-        gMean += i * his[i];
+        mG += i * p[i];
 
-    double currProb1 = 0.0f;
-    double currCumMean = 0.0f;
-    double currIntVar = 0.0f;
-    double maxVar = 0.0f;
+    // 3) Per ogni k: P1 (prob. cumulata), m (media cumulata), varianza inter-classe
+    //    sigmaB2 = (mG*P1 - m)^2 / (P1*(1-P1))  ->  tengo il k che la massimizza
+    double P1 = 0.0, m = 0.0, maxVar = 0.0;
     int kstar = 0;
-    for (int i = 0; i < 256; i++) {
-        currProb1 += his[i];
-        currCumMean += i * his[i];
-        currIntVar = pow(gMean * currProb1 - currCumMean, 2) / (currProb1 * (1 - currProb1));
-        if (currIntVar > maxVar) {
-            maxVar = currIntVar;
-            kstar = i;
+    for (int k = 0; k < 256; k++) {
+        P1 += p[k];
+        m += k * p[k];
+        if (P1 <= 0 || P1 >= 1) continue;  // evito la divisione per zero
+        double sigmaB2 = pow(mG * P1 - m, 2) / (P1 * (1 - P1));
+        if (sigmaB2 > maxVar) {
+            maxVar = sigmaB2;
+            kstar = k;
         }
     }
-
     return kstar;
 }
 
@@ -46,10 +44,10 @@ int main(int argc, char** argv) {
     Mat src = imread(argv[1], IMREAD_GRAYSCALE);
     if (src.empty()) return -1;
 
-    Mat dst, gsrc;
-    GaussianBlur(src, gsrc, Size(3, 3), 0, 0);
-    int th = otsu(src);
-    threshold(src, dst, th, 255, THRESH_BINARY);
+    Mat gauss, dst;
+    GaussianBlur(src, gauss, Size(3, 3), 0, 0);
+    int th = otsu(gauss);
+    threshold(gauss, dst, th, 255, THRESH_BINARY);
 
     imshow("src", src);
     imshow("otsu", dst);
