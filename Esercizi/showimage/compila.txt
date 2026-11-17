@@ -1,1 +1,1 @@
-g++ display_image.cpp -o display_image $(pkg-config --cflags --libs opencv)
+g++ display_image.cpp -o display_image $(pkg-config --cflags opencv5) -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui

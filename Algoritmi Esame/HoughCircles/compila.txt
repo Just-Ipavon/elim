@@ -1,1 +1,1 @@
-g++ houghCircles.cpp -o houghCircles $(pkg-config --cflags --libs opencv)
+g++ houghCircles.cpp -o houghCircles $(pkg-config --cflags opencv5) -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui
