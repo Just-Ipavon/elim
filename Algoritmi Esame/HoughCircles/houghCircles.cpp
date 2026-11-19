@@ -6,8 +6,8 @@ using namespace cv;
 const int cth1 = 100;  // soglie di Canny
 const int cth2 = 112;
 const int rMin = 22;   // raggi cercati: [rMin, rMax]
-const int rMax = 25;
-const int hth = 123;   // voti minimi per accettare un cerchio
+const int rMax = 28;
+const int hth = 170;   // voti minimi per accettare un cerchio
 
 void houghCircles(const Mat& src, Mat& dst) {
     // 1) Smoothing + bordi con Canny
