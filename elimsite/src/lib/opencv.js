@@ -693,6 +693,55 @@ export const runVisualAlgorithm = (algoId, imgEl, canvasEl, params = {}) => {
 export const defaultParams = (algo) =>
   Object.fromEntries((algo.params ?? []).map((param) => [param.key, param.default]));
 
+/**
+ * Estrae dal codice C++ scritto dall'utente i valori dei parametri definiti
+ * in algo.params (cercando dichiarazioni tipo `const int lth = 40;` o `lth = 40`).
+ * Restituisce { values, entries } dove entries indica per ogni parametro se
+ * il valore è stato letto dal codice o preso dal default.
+ */
+export const extractCodeParams = (code, algo) => {
+  const stripped = (code ?? '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+  const values = {};
+  const entries = [];
+
+  for (const param of algo?.params ?? []) {
+    const declMatch = param.code?.match(/(?:const\s+)?(?:int|float|double)\s+(\w+)\s*=\s*(-?\d+(?:\.\d+)?)f?/);
+    let value = param.default;
+    let fromCode = false;
+    let rawValue = null;
+
+    if (declMatch) {
+      const [, varName, codeDefaultStr] = declMatch;
+      const codeDefault = Number(codeDefaultStr);
+      const scale = codeDefault ? param.default / codeDefault : 1;
+      const userRegex = new RegExp(`\\b${varName}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)f?\\b`);
+      const match = stripped.match(userRegex);
+      if (match) {
+        const parsed = Number(match[1]);
+        if (Number.isFinite(parsed)) {
+          rawValue = parsed;
+          value = parsed * scale;
+          fromCode = true;
+        }
+      }
+    }
+
+    values[param.key] = value;
+    entries.push({
+      key: param.key,
+      label: param.label,
+      varName: declMatch?.[1] ?? param.key,
+      value,
+      rawValue: fromCode ? rawValue : null,
+      fromCode,
+    });
+  }
+
+  return { values, entries };
+};
+
 export const clearCanvas = (canvasEl) => {
   const ctx = canvasEl?.getContext('2d');
   if (ctx) ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);

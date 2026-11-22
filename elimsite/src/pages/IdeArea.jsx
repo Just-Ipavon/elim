@@ -1,8 +1,12 @@
-import { useRef, useState } from 'react';
-import { Eye, EyeOff, Play, RotateCcw } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Eye, EyeOff, Loader2, Play, RotateCcw } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
+import { defaultTestImage } from '../data/images';
+import { clearCanvas, extractCodeParams, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { verifySolution } from '../lib/verify';
 import { applyDiagnostics, diagnoseCode } from '../lib/diagnostics';
+import Callout from '../components/ui/Callout';
+import ImagePicker from '../components/ImagePicker';
 import VerificationResult from '../components/VerificationResult';
 import AlgorithmSelect from '../components/ui/AlgorithmSelect';
 import EditorFrame from '../components/ui/EditorFrame';
@@ -13,6 +17,7 @@ import { scrollIntoViewOnMobile, useEditorOptions } from '../lib/useIsDesktop';
 const TABS = [
   { id: 'result', label: 'Esito' },
   { id: 'reference', label: 'Riferimento' },
+  { id: 'viewer', label: 'Visualizzatore' },
 ];
 
 const IdeArea = () => {
@@ -24,10 +29,18 @@ const IdeArea = () => {
   // All'inizio il riferimento è più utile dell'esito vuoto
   const [tab, setTab] = useState('reference');
   const [split, setSplit] = useSplit('imageproc-ide-split');
+  const [testImage, setTestImage] = useState(defaultTestImage);
+  const [processing, setProcessing] = useState(false);
+  const [hasOutput, setHasOutput] = useState(false);
+  const [runError, setRunError] = useState(null);
+  const cvStatus = useOpenCv();
+  const imgRef = useRef(null);
+  const canvasRef = useRef(null);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const sideRef = useRef(null);
   const referenceOptions = useEditorOptions({ readOnly: true, fontSize: 13, lineHeight: 20, domReadOnly: true });
+  const parsedParams = useMemo(() => extractCodeParams(code, selectedAlgo), [code, selectedAlgo]);
 
   const setProblems = (list) => {
     setDiagnostics(list);
@@ -47,12 +60,35 @@ const IdeArea = () => {
     setCode(algo.cppSkeleton);
     setVerificationResult(null);
     setProblems([]);
+    clearCanvas(canvasRef.current);
+    setHasOutput(false);
+    setRunError(null);
   };
 
   const resetCode = () => {
     setCode(selectedAlgo.cppSkeleton);
     setVerificationResult(null);
     setProblems([]);
+    clearCanvas(canvasRef.current);
+    setHasOutput(false);
+    setRunError(null);
+  };
+
+  const runVisualizer = () => {
+    if (cvStatus !== 'ready' || !imgRef.current || !canvasRef.current) return;
+    setProcessing(true);
+    setRunError(null);
+    setTimeout(() => {
+      try {
+        runVisualAlgorithm(selectedAlgo.id, imgRef.current, canvasRef.current, parsedParams.values);
+        setHasOutput(true);
+      } catch (err) {
+        console.error('OpenCV execution error:', err);
+        setRunError(err?.message || 'Errore durante elaborazione OpenCV.');
+      } finally {
+        setProcessing(false);
+      }
+    }, 50);
   };
 
   const verifyCode = () => {
@@ -157,7 +193,7 @@ const IdeArea = () => {
             )}
           </div>
 
-          {tab === 'result' ? (
+          {tab === 'result' && (
             <div
               role="tabpanel"
               id="ide-panel-result"
@@ -180,7 +216,8 @@ const IdeArea = () => {
                 </ResultEmpty>
               )}
             </div>
-          ) : (
+          )}
+          {tab === 'reference' && (
             <div
               role="tabpanel"
               id="ide-panel-reference"
@@ -204,6 +241,107 @@ const IdeArea = () => {
                     quando vuoi controllare.
                   </p>
                 </div>
+              )}
+            </div>
+          )}
+          {tab === 'viewer' && (
+            <div
+              role="tabpanel"
+              id="ide-panel-viewer"
+              aria-labelledby="ide-tab-viewer"
+              className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p role="status" className="min-w-0 font-mono text-2xs text-ink-3">
+                  {cvStatus === 'loading' && 'caricamento OpenCV.js…'}
+                  {cvStatus === 'ready' && (processing ? 'elaborazione…' : hasOutput ? 'output aggiornato' : 'OpenCV.js pronto')}
+                  {cvStatus === 'error' && 'OpenCV.js non disponibile'}
+                </p>
+                <button
+                  type="button"
+                  onClick={runVisualizer}
+                  disabled={cvStatus !== 'ready' || processing}
+                  className="btn btn-primary btn-sm h-9 shrink-0 px-3"
+                >
+                  {processing || cvStatus === 'loading' ? (
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Play size={14} aria-hidden="true" />
+                  )}
+                  {processing ? 'Elaborazione…' : cvStatus === 'loading' ? 'Caricamento…' : 'Esegui'}
+                </button>
+              </div>
+
+              <ImagePicker
+                id="ide-test-image"
+                selectedId={testImage.id}
+                customLabel={testImage.name}
+                onSelect={(img) => {
+                  setTestImage(img);
+                  clearCanvas(canvasRef.current);
+                  setHasOutput(false);
+                }}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <figure className="min-w-0">
+                  <figcaption className="eyebrow mb-1.5">Sorgente</figcaption>
+                  <div className="relative aspect-square overflow-hidden rounded-md border border-line bg-sunken">
+                    <img
+                      ref={imgRef}
+                      src={testImage.src}
+                      alt={`Immagine sorgente: ${testImage.name}`}
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
+                  </div>
+                </figure>
+                <figure className="min-w-0">
+                  <figcaption className="eyebrow mb-1.5">Output</figcaption>
+                  <div className="relative aspect-square overflow-hidden rounded-md border border-line bg-sunken">
+                    <canvas
+                      ref={canvasRef}
+                      aria-label={`Output di ${selectedAlgo.name}`}
+                      className={`absolute inset-0 h-full w-full object-contain ${hasOutput ? '' : 'invisible'}`}
+                    />
+                    {!hasOutput && (
+                      <span className="absolute inset-0 flex items-center justify-center px-2 text-center font-mono text-2xs text-ink-3">
+                        {processing ? 'elaborazione…' : 'premi Esegui'}
+                      </span>
+                    )}
+                  </div>
+                </figure>
+              </div>
+
+              {parsedParams.entries.length > 0 && (
+                <div className="rounded-md border border-line bg-sunken/60 p-3">
+                  <p className="eyebrow mb-2">Parametri letti dal tuo codice</p>
+                  <ul className="flex flex-wrap gap-2">
+                    {parsedParams.entries.map((entry) => (
+                      <li
+                        key={entry.key}
+                        className={`rounded border px-2 py-1 font-mono text-2xs ${
+                          entry.fromCode
+                            ? 'border-accent/40 bg-accent/10 text-ink'
+                            : 'border-line bg-surface text-ink-3'
+                        }`}
+                      >
+                        {entry.varName} = {entry.fromCode ? entry.rawValue : entry.value}{' '}
+                        <span>({entry.fromCode ? 'dal codice' : 'default'})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {runError && (
+                <Callout tone="err" role="alert">
+                  {runError}
+                </Callout>
+              )}
+              {cvStatus === 'error' && (
+                <Callout tone="err" role="alert" title="Impossibile caricare OpenCV.js">
+                  Controlla la connessione e ricarica la pagina.
+                </Callout>
               )}
             </div>
           )}
