@@ -5,4 +5,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "/elim/", // Essential for correct absolute asset paths on GH Pages
+  server: {
+    fs: {
+      allow: [".."],
+    },
+  },
 });

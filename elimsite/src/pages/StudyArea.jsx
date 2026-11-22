@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Play } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { algorithms } from '../data/algorithms';
-import lenaSrc from '../assets/lena.png';
+import { defaultTestImage } from '../data/images';
 import { clearCanvas, defaultParams, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { baseEditorOptions } from '../lib/monacoTheme';
 import AlgorithmSelect from '../components/ui/AlgorithmSelect';
 import Callout from '../components/ui/Callout';
 import EditorFrame from '../components/ui/EditorFrame';
+import ImagePicker from '../components/ImagePicker';
 import Panel from '../components/ui/Panel';
 import ParamControls from '../components/ParamControls';
 import ExplanationPanel from '../components/study/ExplanationPanel';
@@ -81,6 +82,7 @@ const StudyArea = () => {
   const [activeExplanation, setActiveExplanation] = useState(null);
   const [runError, setRunError] = useState(null);
   const [params, setParams] = useState(() => defaultParams(selectedAlgo));
+  const [testImage, setTestImage] = useState(defaultTestImage);
   const [hasOutput, setHasOutput] = useState(false);
   const [tab, setTab] = useState('explanation');
   const [stepsOpen, setStepsOpen] = useState(false);
@@ -412,11 +414,22 @@ const StudyArea = () => {
               </button>
             </div>
 
+            <ImagePicker
+              id="study-test-image"
+              selectedId={testImage.id}
+              customLabel={testImage.name}
+              onSelect={(img) => {
+                setTestImage(img);
+                clearCanvas(canvasRef.current);
+                setHasOutput(false);
+              }}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <figure className="min-w-0">
                 <figcaption className="eyebrow mb-1.5">Sorgente</figcaption>
                 <div className="relative aspect-square overflow-hidden rounded-md border border-line bg-sunken">
-                  <img ref={imgRef} src={lenaSrc} alt="Immagine sorgente: Lena" className="absolute inset-0 h-full w-full object-contain" />
+                  <img ref={imgRef} src={testImage.src} alt={`Immagine sorgente: ${testImage.name}`} className="absolute inset-0 h-full w-full object-contain" />
                 </div>
               </figure>
               <figure className="min-w-0">

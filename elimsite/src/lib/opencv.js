@@ -573,8 +573,8 @@ export const runVisualAlgorithm = (algoId, imgEl, canvasEl, params = {}) => {
 
       case 'hough_circles': {
         const rMin = p('minRadius', 22);
-        const rMax = p('maxRadius', 25);
-        const th = p('votes', 123);
+        const rMax = p('maxRadius', 28);
+        const th = p('votes', 170);
         const edges = cannyEdges(100, 112);
         const { votes, radii } = houghCirclesVotes(edges, rows, cols, rMin, rMax);
         dst = grayCanvas();

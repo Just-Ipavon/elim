@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - "elimsite/**"
+      - "Algoritmi Esame/**"
+      - "Esercizi/**"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 

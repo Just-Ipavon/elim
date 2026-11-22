@@ -1,3 +1,15 @@
+import cannyCpp from "../../../Algoritmi Esame/canny/canny.cpp?raw";
+import harrisCpp from "../../../Algoritmi Esame/Harris/Harris.cpp?raw";
+import houghCirclesCpp from "../../../Algoritmi Esame/HoughCircles/houghCircles.cpp?raw";
+import houghLinesCpp from "../../../Algoritmi Esame/HoughLines/houghLines.cpp?raw";
+import kmeansCpp from "../../../Algoritmi Esame/K-means/kmeans.cpp?raw";
+import otsuCpp from "../../../Algoritmi Esame/Otsu/otsu.cpp?raw";
+import otsu2kCpp from "../../../Algoritmi Esame/Otsu2k/otsu2k.cpp?raw";
+import regionGrowingCpp from "../../../Algoritmi Esame/Region Growing/regionGrowing.cpp?raw";
+import splitMergeCpp from "../../../Algoritmi Esame/split and merge/splitAndMerge.cpp?raw";
+
+const normalizeCpp = (src) => src.replace(/\r\n/g, "\n").trimEnd();
+
 const baseTemplate = `#include <opencv2/opencv.hpp>
 #include <stdlib.h>
 
@@ -176,81 +188,7 @@ export const algorithms = [
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-const int lth = 40;  // soglia bassa
-const int hth = 90;  // soglia alta
-
-// 4) Non-maxima suppression: tengo il pixel solo se è un massimo lungo la direzione del gradiente
-void nonMaxSuppression(const Mat& mag, const Mat& angle, Mat& nms) {
-    nms = Mat::zeros(mag.size(), CV_8U);
-    for (int y = 1; y < mag.rows - 1; y++)
-        for (int x = 1; x < mag.cols - 1; x++) {
-            float a = fmod(angle.at<float>(y, x), 180);  // [0,360) -> [0,180)
-            int dy, dx;                                  // passo verso il vicino lungo il gradiente
-            if (a < 22.5 || a >= 157.5) { dy = 0; dx = 1;  }  // orizzontale
-            else if (a < 67.5)          { dy = 1; dx = 1;  }  // diagonale 45
-            else if (a < 112.5)         { dy = 1; dx = 0;  }  // verticale
-            else                        { dy = 1; dx = -1; }  // diagonale 135
-            uchar m = mag.at<uchar>(y, x);
-            if (m >= mag.at<uchar>(y + dy, x + dx) && m >= mag.at<uchar>(y - dy, x - dx))
-                nms.at<uchar>(y, x) = m;
-        }
-}
-
-// 5) Isteresi: un pixel forte è bordo e "accende" i vicini deboli
-void hysteresis(const Mat& nms, Mat& dst) {
-    dst = Mat::zeros(nms.size(), CV_8U);
-    for (int y = 1; y < nms.rows - 1; y++)
-        for (int x = 1; x < nms.cols - 1; x++)
-            if (nms.at<uchar>(y, x) > hth) {
-                dst.at<uchar>(y, x) = 255;
-                for (int dy = -1; dy <= 1; dy++)
-                    for (int dx = -1; dx <= 1; dx++) {
-                        uchar v = nms.at<uchar>(y + dy, x + dx);
-                        if (v > lth && v < hth)
-                            dst.at<uchar>(y + dy, x + dx) = 255;
-                    }
-            }
-}
-
-void myCanny(const Mat& src, Mat& dst) {
-    // 1) Smoothing gaussiano
-    Mat gauss;
-    GaussianBlur(src, gauss, Size(5, 5), 0, 0);
-
-    // 2) Derivate con Sobel
-    Mat Dx, Dy;
-    Sobel(gauss, Dx, CV_32F, 1, 0, 3);
-    Sobel(gauss, Dy, CV_32F, 0, 1, 3);
-
-    // 3) Magnitudo (normalizzata a 0-255) e fase in gradi
-    Mat mag, angle;
-    magnitude(Dx, Dy, mag);
-    normalize(mag, mag, 0, 255, NORM_MINMAX, CV_8U);
-    phase(Dx, Dy, angle, true);
-
-    // 4) NMS   5) Isteresi
-    Mat nms;
-    nonMaxSuppression(mag, angle, nms);
-    hysteresis(nms, dst);
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat dst;
-    myCanny(src, dst);
-
-    imshow("src", src);
-    imshow("canny", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(cannyCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -391,60 +329,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-const float k = 0.04f;  // costante di Harris (0.04 - 0.06)
-const int th = 100;     // soglia su R normalizzato 0-255
-
-void harris(const Mat& src, Mat& dst) {
-    // 1) Derivate con Sobel
-    Mat Dx, Dy;
-    Sobel(src, Dx, CV_32F, 1, 0, 3);
-    Sobel(src, Dy, CV_32F, 0, 1, 3);
-
-    // 2) Prodotti delle derivate
-    Mat Dx2, Dy2, Dxy;
-    pow(Dx, 2, Dx2);
-    pow(Dy, 2, Dy2);
-    multiply(Dx, Dy, Dxy);
-
-    // 3) Smoothing gaussiano -> elementi della matrice C = [Sx2 Sxy; Sxy Sy2]
-    Mat Sx2, Sy2, Sxy;
-    GaussianBlur(Dx2, Sx2, Size(7, 7), 2, 2);
-    GaussianBlur(Dy2, Sy2, Size(7, 7), 2, 2);
-    GaussianBlur(Dxy, Sxy, Size(7, 7), 2, 2);
-
-    // 4) R = det(C) - k * trace(C)^2
-    Mat SxSy, Sxy2, trace2;
-    multiply(Sx2, Sy2, SxSy);
-    multiply(Sxy, Sxy, Sxy2);
-    pow(Sx2 + Sy2, 2, trace2);
-    Mat R = (SxSy - Sxy2) - k * trace2;
-
-    // 5) Normalizzo R e cerchio i punti sopra soglia
-    normalize(R, R, 0, 255, NORM_MINMAX, CV_32F);
-    dst = src.clone();
-    for (int y = 0; y < R.rows; y++)
-        for (int x = 0; x < R.cols; x++)
-            if (R.at<float>(y, x) > th)
-                circle(dst, Point(x, y), 5, Scalar(255), 2);
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat dst;
-    harris(src, dst);
-
-    imshow("src", src);
-    imshow("harris", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(harrisCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -457,8 +342,8 @@ int main(int argc, char** argv) {
         min: 30,
         max: 250,
         step: 1,
-        default: 123,
-        code: "const int hth = 123;",
+        default: 170,
+        code: "const int hth = 170;",
       },
       {
         key: "minRadius",
@@ -475,18 +360,18 @@ int main(int argc, char** argv) {
         min: 5,
         max: 60,
         step: 1,
-        default: 25,
-        code: "const int rMax = 25;",
+        default: 28,
+        code: "const int rMax = 28;",
       },
     ],
     description:
-      "La trasformata di Hough per i cerchi cerca cerchi di raggio noto (qui da 22 a 25 pixel). Un cerchio di centro (a, b) e raggio r è l'insieme dei punti con (x − a)² + (y − b)² = r²: si cerca nello spazio dei parametri (a, b, r) invece che nell'immagine. Ogni pixel di bordo «vota» tutti i possibili centri da cui potrebbe provenire; i veri centri accumulano molti voti perché ricevono il voto da tutti i punti della propria circonferenza.",
+      "La trasformata di Hough per i cerchi cerca cerchi di raggio noto (qui da 22 a 28 pixel). Un cerchio di centro (a, b) e raggio r è l'insieme dei punti con (x − a)² + (y − b)² = r²: si cerca nello spazio dei parametri (a, b, r) invece che nell'immagine. Ogni pixel di bordo «vota» tutti i possibili centri da cui potrebbe provenire; i veri centri accumulano molti voti perché ricevono il voto da tutti i punti della propria circonferenza.",
     steps: [
       "Smoothing gaussiano 5×5 e Canny (100, 112) per ottenere i pixel di bordo.",
       "Accumulatore 3D votes(b, a, r − rMin) inizializzato a zero.",
       "Per ogni pixel di bordo (x, y), raggio r e angolo θ: voto al centro (a, b) = (x − r·cos θ, y − r·sin θ).",
       "Ogni pixel di bordo vota quindi una circonferenza di possibili centri: dove molte circonferenze si incrociano c'è un centro vero.",
-      "Le celle con almeno 123 voti sono cerchi: si disegnano centro e circonferenza.",
+      "Le celle con almeno 170 voti sono cerchi: si disegnano centro e circonferenza.",
     ],
     concepts: ["mat", "coords", "types", "edge", "hough", "radians", "threshold", "nms", "clone"],
     explanations: [
@@ -501,9 +386,9 @@ int main(int argc, char** argv) {
       },
       {
         startMatch: "const int cth1 = 100;",
-        endMatch: "const int hth = 123;",
+        endMatch: "const int hth = 170;",
         title: "Parametri",
-        text: "cth1 e cth2 sono le soglie di Canny. Si cercano i raggi da rMin a rMax inclusi (i cicli usano <=), cioè 22, 23, 24 e 25. hth è il numero minimo di voti perché una cella dell'accumulatore sia considerata un cerchio.",
+        text: "cth1 e cth2 sono le soglie di Canny. Si cercano i raggi da rMin a rMax inclusi (i cicli usano <=), cioè da 22 a 28. hth è il numero minimo di voti perché una cella dell'accumulatore sia considerata un cerchio.",
         points: [
           "hth troppo alta → nessun cerchio; troppo bassa → molti falsi cerchi, soprattutto su zone ricche di bordi (capelli, tessuti).",
           "Le soglie di Canny vicine (100 e 112) tengono quasi solo i bordi netti.",
@@ -596,63 +481,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-const int cth1 = 100;  // soglie di Canny
-const int cth2 = 112;
-const int rMin = 22;   // raggi cercati: [rMin, rMax]
-const int rMax = 25;
-const int hth = 123;   // voti minimi per accettare un cerchio
-
-void houghCircles(const Mat& src, Mat& dst) {
-    // 1) Smoothing + bordi con Canny
-    Mat gauss, edges;
-    GaussianBlur(src, gauss, Size(5, 5), 0, 0);
-    Canny(gauss, edges, cth1, cth2);
-
-    // 2) Accumulatore 3D: (b, a, r) = (riga centro, colonna centro, raggio)
-    int sizes[] = {src.rows, src.cols, rMax - rMin + 1};
-    Mat votes(3, sizes, CV_32S, Scalar(0));
-
-    // 3) Votazione: ogni punto di bordo vota per i centri a distanza r da sé
-    for (int y = 0; y < edges.rows; y++)
-        for (int x = 0; x < edges.cols; x++)
-            if (edges.at<uchar>(y, x) == 255)
-                for (int r = rMin; r <= rMax; r++)
-                    for (int t = 0; t < 360; t++) {
-                        double theta = t * CV_PI / 180;
-                        int a = cvRound(x - r * cos(theta));
-                        int b = cvRound(y - r * sin(theta));
-                        if (a >= 0 && a < src.cols && b >= 0 && b < src.rows)
-                            votes.at<int>(b, a, r - rMin)++;
-                    }
-
-    // 4) Disegno centro e circonferenza dei cerchi con abbastanza voti
-    dst = src.clone();
-    for (int r = rMin; r <= rMax; r++)
-        for (int b = 0; b < src.rows; b++)
-            for (int a = 0; a < src.cols; a++)
-                if (votes.at<int>(b, a, r - rMin) >= hth) {
-                    circle(dst, Point(a, b), 3, Scalar(0), 2);
-                    circle(dst, Point(a, b), r, Scalar(0), 2);
-                }
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat dst;
-    houghCircles(src, dst);
-
-    imshow("src", src);
-    imshow("hough circles", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(houghCirclesCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -724,7 +553,7 @@ int main(int argc, char** argv) {
         text: "L'immagine viene sfocata con un filtro gaussiano 5×5 e passata al Canny di OpenCV, che produce una mappa binaria: 255 sui bordi, 0 altrove. Solo i pixel di bordo voteranno.",
       },
       {
-        startMatch: "int maxDist = hypot(src.rows, src.cols);",
+        startMatch: "int maxDist = cvRound(hypot(src.rows, src.cols));",
         endMatch: "Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);",
         title: "Accumulatore",
         text: "|ρ| non può superare la diagonale dell'immagine (hypot = √(rows² + cols²)). Poiché ρ può essere negativo, l'accumulatore ha 2·maxDist + 1 righe e l'indice di riga è ρ + maxDist. Le colonne sono i 180 angoli possibili: θ e θ + 180° individuano la stessa retta (con ρ di segno opposto).",
@@ -744,7 +573,7 @@ int main(int argc, char** argv) {
       },
       {
         startMatch: "double theta = t * CV_PI / 180;",
-        endMatch: "votes.at<int>(rho, t)++;",
+        endMatch: "if (rho >= 0 && rho < votes.rows) {",
         title: "Votazione · Calcolo di ρ",
         text: "Per l'angolo θ si calcola il ρ della retta con normale inclinata di θ che passa per (x, y), lo si sposta di maxDist per avere un indice ≥ 0 e si incrementa la cella.",
         points: [
@@ -798,61 +627,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-const int cth1 = 90;  // soglie di Canny
-const int cth2 = 160;
-const int hth = 90;   // voti minimi per accettare una retta
-
-void houghLines(const Mat& src, Mat& dst) {
-    // 1) Smoothing + bordi con Canny
-    Mat gauss, edges;
-    GaussianBlur(src, gauss, Size(5, 5), 0, 0);
-    Canny(gauss, edges, cth1, cth2);
-
-    // 2) Accumulatore: righe = rho in [-maxDist, maxDist], colonne = theta in [0, 180)
-    int maxDist = hypot(src.rows, src.cols);
-    Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);
-
-    // 3) Votazione: ogni punto di bordo vota per tutte le rette che ci passano
-    for (int y = 0; y < edges.rows; y++)
-        for (int x = 0; x < edges.cols; x++)
-            if (edges.at<uchar>(y, x) == 255)
-                for (int t = 0; t < 180; t++) {
-                    double theta = t * CV_PI / 180;
-                    int rho = cvRound(x * cos(theta) + y * sin(theta)) + maxDist;
-                    votes.at<int>(rho, t)++;
-                }
-
-    // 4) Disegno le rette con abbastanza voti (da polari a due punti cartesiani)
-    dst = src.clone();
-    for (int r = 0; r < votes.rows; r++)
-        for (int t = 0; t < votes.cols; t++)
-            if (votes.at<int>(r, t) >= hth) {
-                double rho = r - maxDist;
-                double theta = t * CV_PI / 180;
-                double x0 = rho * cos(theta), y0 = rho * sin(theta);  // punto della retta più vicino all'origine
-                Point p1(cvRound(x0 - maxDist * sin(theta)), cvRound(y0 + maxDist * cos(theta)));
-                Point p2(cvRound(x0 + maxDist * sin(theta)), cvRound(y0 - maxDist * cos(theta)));
-                line(dst, p1, p2, Scalar(127), 2);
-            }
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat dst;
-    houghLines(src, dst);
-
-    imshow("src", src);
-    imshow("hough lines", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(houghLinesCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -977,77 +752,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-#include <vector>
-
-using namespace std;
-using namespace cv;
-
-const int k = 6;          // numero di cluster
-const double th = 0.5;    // mi fermo quando i centri si spostano (in media) meno di così
-
-void kmeansSegmentation(const Mat& src, Mat& dst) {
-    // 1) Inizializzo i k centri con il colore di pixel casuali
-    RNG rng(getTickCount());
-    vector<Vec3f> centers(k);
-    for (int c = 0; c < k; c++)
-        centers[c] = src.at<Vec3b>(rng.uniform(0, src.rows), rng.uniform(0, src.cols));
-
-    Mat labels(src.size(), CV_32S);
-    double shift = INFINITY;
-    while (shift > th) {
-        // 2) Assegnamento: ogni pixel va al centro più vicino (distanza euclidea sui colori)
-        for (int y = 0; y < src.rows; y++)
-            for (int x = 0; x < src.cols; x++) {
-                Vec3f px = src.at<Vec3b>(y, x);
-                double minDist = INFINITY;
-                for (int c = 0; c < k; c++) {
-                    double d = norm(px - centers[c]);
-                    if (d < minDist) {
-                        minDist = d;
-                        labels.at<int>(y, x) = c;
-                    }
-                }
-            }
-
-        // 3) Aggiornamento: ogni centro diventa la media dei suoi pixel
-        vector<Vec3f> sum(k, Vec3f(0, 0, 0));
-        vector<int> count(k, 0);
-        for (int y = 0; y < src.rows; y++)
-            for (int x = 0; x < src.cols; x++) {
-                int c = labels.at<int>(y, x);
-                sum[c] += Vec3f(src.at<Vec3b>(y, x));
-                count[c]++;
-            }
-        shift = 0;
-        for (int c = 0; c < k; c++)
-            if (count[c] > 0) {  // un cluster vuoto mantiene il suo centro
-                Vec3f newCenter = sum[c] / count[c];
-                shift += norm(newCenter - centers[c]);
-                centers[c] = newCenter;
-            }
-        shift /= k;
-    }
-
-    // 4) Coloro ogni pixel con il colore del suo centro
-    dst.create(src.size(), src.type());
-    for (int y = 0; y < src.rows; y++)
-        for (int x = 0; x < src.cols; x++)
-            dst.at<Vec3b>(y, x) = centers[labels.at<int>(y, x)];
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_COLOR);
-    if (src.empty()) return -1;
-
-    Mat dst;
-    kmeansSegmentation(src, dst);
-
-    imshow("src", src);
-    imshow("kmeans", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(kmeansCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -1151,62 +856,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-// p[i] = probabilità del livello di grigio i
-vector<double> normalizedHistogram(const Mat& src) {
-    vector<double> p(256, 0.0);
-    for (int y = 0; y < src.rows; y++)
-        for (int x = 0; x < src.cols; x++)
-            p[src.at<uchar>(y, x)]++;
-    for (int i = 0; i < 256; i++)
-        p[i] /= src.rows * src.cols;
-    return p;
-}
-
-int otsu(const Mat& src) {
-    // 1) Istogramma normalizzato
-    vector<double> p = normalizedHistogram(src);
-
-    // 2) Media globale mG
-    double mG = 0.0;
-    for (int i = 0; i < 256; i++)
-        mG += i * p[i];
-
-    // 3) Per ogni k: P1 (prob. cumulata), m (media cumulata), varianza inter-classe
-    //    sigmaB2 = (mG*P1 - m)^2 / (P1*(1-P1))  ->  tengo il k che la massimizza
-    double P1 = 0.0, m = 0.0, maxVar = 0.0;
-    int kstar = 0;
-    for (int k = 0; k < 256; k++) {
-        P1 += p[k];
-        m += k * p[k];
-        if (P1 <= 0 || P1 >= 1) continue;  // evito la divisione per zero
-        double sigmaB2 = pow(mG * P1 - m, 2) / (P1 * (1 - P1));
-        if (sigmaB2 > maxVar) {
-            maxVar = sigmaB2;
-            kstar = k;
-        }
-    }
-    return kstar;
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat gauss, dst;
-    GaussianBlur(src, gauss, Size(3, 3), 0, 0);
-    int th = otsu(gauss);
-    threshold(gauss, dst, th, 255, THRESH_BINARY);
-
-    imshow("src", src);
-    imshow("otsu", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(otsuCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -1310,89 +960,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-
-using namespace std;
-using namespace cv;
-
-// p[i] = probabilità del livello di grigio i
-vector<double> normalizedHistogram(const Mat& src) {
-    vector<double> p(256, 0.0);
-    for (int y = 0; y < src.rows; y++)
-        for (int x = 0; x < src.cols; x++)
-            p[src.at<uchar>(y, x)]++;
-    for (int i = 0; i < 256; i++)
-        p[i] /= src.rows * src.cols;
-    return p;
-}
-
-// Restituisce le due soglie {k1, k2}: classi [0,k1], (k1,k2], (k2,255]
-vector<int> otsu2k(const Mat& src) {
-    // 1) Istogramma normalizzato
-    vector<double> p = normalizedHistogram(src);
-
-    // 2) Media globale mG
-    double mG = 0.0;
-    for (int i = 0; i < 256; i++)
-        mG += i * p[i];
-
-    // 3) Per ogni coppia (k1,k2): P e m cumulati delle 3 classi
-    //    sigmaB2 = somma_w P[w] * (m[w]/P[w] - mG)^2  ->  tengo la coppia che la massimizza
-    double maxVar = 0.0;
-    vector<int> kstar(2, 0);
-    double P1 = 0.0, m1 = 0.0;
-    for (int k1 = 0; k1 < 256 - 2; k1++) {
-        P1 += p[k1];
-        m1 += k1 * p[k1];
-        double P2 = 0.0, m2 = 0.0;
-        for (int k2 = k1 + 1; k2 < 256 - 1; k2++) {
-            P2 += p[k2];
-            m2 += k2 * p[k2];
-            double P3 = 1 - P1 - P2;  // la terza classe è "tutto il resto"
-            double m3 = mG - m1 - m2;
-            double P[3] = {P1, P2, P3};
-            double m[3] = {m1, m2, m3};
-            double sigmaB2 = 0.0;
-            for (int w = 0; w < 3; w++)
-                if (P[w] > 0)
-                    sigmaB2 += P[w] * pow(m[w] / P[w] - mG, 2);
-            if (sigmaB2 > maxVar) {
-                maxVar = sigmaB2;
-                kstar[0] = k1;
-                kstar[1] = k2;
-            }
-        }
-    }
-    return kstar;
-}
-
-// 4) Tre livelli di uscita: 0, 127, 255
-void multipleThreshold(const Mat& src, Mat& dst, int k1, int k2) {
-    dst = Mat::zeros(src.size(), CV_8U);
-    for (int y = 0; y < src.rows; y++)
-        for (int x = 0; x < src.cols; x++) {
-            uchar v = src.at<uchar>(y, x);
-            if (v > k2)
-                dst.at<uchar>(y, x) = 255;
-            else if (v > k1)
-                dst.at<uchar>(y, x) = 127;
-        }
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    Mat gauss, dst;
-    GaussianBlur(src, gauss, Size(3, 3), 0, 0);
-    vector<int> k = otsu2k(gauss);
-    multipleThreshold(gauss, dst, k[0], k[1]);
-
-    imshow("src", src);
-    imshow("otsu2k", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(otsu2kCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -1541,83 +1109,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-#include <stack>
-
-using namespace std;
-using namespace cv;
-
-const int th = 200;                      // soglia sulla distanza di colore (al quadrato)
-const int maxRegions = 100;              // numero massimo di regioni
-const double minRegionAreaFactor = 0.01; // regioni sotto l'1% dell'immagine vengono ignorate
-
-// distanza di colore al quadrato: (B-B')^2 + (G-G')^2 + (R-R')^2
-int colorDist2(Vec3b a, Vec3b b) {
-    int d0 = a[0] - b[0], d1 = a[1] - b[1], d2 = a[2] - b[2];
-    return d0 * d0 + d1 * d1 + d2 * d2;
-}
-
-// Accresce una regione dal seed: aggiungo i vicini (8-connessi) simili al pixel corrente
-void grow(const Mat& src, const Mat& dst, Mat& mask, Point seed) {
-    stack<Point> front;
-    front.push(seed);
-    mask.at<uchar>(seed) = 1;
-    while (!front.empty()) {
-        Point p = front.top();
-        front.pop();
-        for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++) {
-                Point q(p.x + dx, p.y + dy);
-                if (q.x < 0 || q.y < 0 || q.x >= src.cols || q.y >= src.rows) continue;  // fuori immagine
-                if (dst.at<uchar>(q) || mask.at<uchar>(q)) continue;                     // già visitato
-                if (colorDist2(src.at<Vec3b>(p), src.at<Vec3b>(q)) < th) {
-                    mask.at<uchar>(q) = 1;  // marco subito, così non lo inserisco due volte
-                    front.push(q);
-                }
-            }
-    }
-}
-
-// dst: 0 = non visitato, 1..maxRegions = etichetta della regione, 255 = ignorato
-void regionGrowing(const Mat& src, Mat& dst) {
-    dst = Mat::zeros(src.size(), CV_8U);
-    Mat mask = Mat::zeros(src.size(), CV_8U);
-    int minRegionArea = int(minRegionAreaFactor * src.rows * src.cols);
-    int label = 1;
-
-    // Ogni pixel non ancora visitato diventa un seed
-    for (int y = 0; y < src.rows; y++)
-        for (int x = 0; x < src.cols; x++)
-            if (dst.at<uchar>(y, x) == 0) {
-                grow(src, dst, mask, Point(x, y));
-                if (countNonZero(mask) > minRegionArea) {
-                    dst += mask * label;  // regione valida
-                    imshow("mask", mask * 255);
-                    waitKey(0);
-                    if (++label > maxRegions) {
-                        cout << "Run out of region labels..." << endl;
-                        return;
-                    }
-                } else
-                    dst += mask * 255;  // regione troppo piccola: ignorata
-                mask.setTo(0);
-            }
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_COLOR);
-    if (src.empty()) return -1;
-    if (src.rows > 500 || src.cols > 500)
-        resize(src, src, Size(0, 0), 0.5, 0.5);  // dimezzo le immagini grandi (come il prof)
-
-    Mat dst;
-    regionGrowing(src, dst);
-
-    imshow("src", src);
-    imshow("regions", dst);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(regionGrowingCpp),
     cppSkeleton: baseTemplate,
   },
   {
@@ -1780,119 +1272,7 @@ int main(int argc, char** argv) {
         ],
       },
     ],
-    codeReference: `#include <opencv2/opencv.hpp>
-#include <vector>
-
-using namespace std;
-using namespace cv;
-
-const double sth = 10;  // split se la deviazione standard supera questa soglia
-const int tsize = 8;    // dimensione minima di una regione
-const int mth = 5;      // merge se le medie differiscono meno di questa soglia
-
-/*
- Quadranti in ordine CIRCOLARE: i e (i+1)%4 sono sempre adiacenti
-  _______
- | 0 | 1 |
- |---+---|
- | 3 | 2 |
-  -------
-*/
-struct TNode {
-    Rect region;
-    double mean, stddev;
-    vector<TNode*> children = vector<TNode*>(4, nullptr);
-    vector<TNode*> merged;                     // nodi uniti in questa regione
-    vector<bool> mergedB = vector<bool>(4, false);  // quali figli sono stati uniti
-    TNode(Rect R) { region = R; }
-};
-
-// 1) SPLIT: divido in 4 finché la regione non è omogenea o troppo piccola
-TNode* split(Mat& img, Rect R) {
-    TNode* root = new TNode(R);
-    Scalar mean, stddev;
-    meanStdDev(img(R), mean, stddev);
-    root->mean = mean[0];
-    root->stddev = stddev[0];
-
-    if (R.width > tsize && root->stddev > sth) {
-        int h = R.width / 2;
-        root->children[0] = split(img, Rect(R.x,     R.y,     h, h));  // alto sx
-        root->children[1] = split(img, Rect(R.x + h, R.y,     h, h));  // alto dx
-        root->children[2] = split(img, Rect(R.x + h, R.y + h, h, h));  // basso dx
-        root->children[3] = split(img, Rect(R.x,     R.y + h, h, h));  // basso sx
-    }
-    rectangle(img, R, Scalar(0));  // disegno il quadtree
-    return root;
-}
-
-// unisco solo foglie (regioni omogenee) con medie vicine
-bool similar(TNode* a, TNode* b) {
-    bool leaves = !a->children[0] && !b->children[0];
-    return leaves && abs(a->mean - b->mean) < mth;
-}
-
-void addMerged(TNode* root, int i) {
-    root->merged.push_back(root->children[i]);
-    root->mergedB[i] = true;
-}
-
-// 2) MERGE: unisco due figli adiacenti simili (ed eventualmente i loro vicini), il resto lo ricorro
-void merge(TNode* root) {
-    if (!root->children[0]) {  // foglia: la regione è se stessa
-        root->merged.push_back(root);
-        return;
-    }
-    for (int i = 0; i < 4; i++) {
-        int next = (i + 1) % 4, opp = (i + 2) % 4, prev = (i + 3) % 4;
-        if (similar(root->children[i], root->children[next])) {
-            addMerged(root, i);
-            addMerged(root, next);
-            if (similar(root->children[next], root->children[opp])) addMerged(root, opp);
-            if (similar(root->children[i], root->children[prev])) addMerged(root, prev);
-            break;
-        }
-    }
-    for (int i = 0; i < 4; i++)
-        if (!root->mergedB[i])
-            merge(root->children[i]);
-}
-
-// 3) SEGMENT: coloro ogni gruppo unito con la media delle medie, poi ricorro sui figli non uniti
-void segment(TNode* root, Mat& img) {
-    if (!root->merged.empty()) {
-        double val = 0;
-        for (TNode* node : root->merged)
-            val += node->mean;
-        val /= root->merged.size();
-        for (TNode* node : root->merged)
-            img(node->region) = (int)val;
-    }
-    for (int i = 0; i < 4; i++)
-        if (root->children[i] && !root->mergedB[i])
-            segment(root->children[i], img);
-}
-
-int main(int argc, char** argv) {
-    Mat src = imread(argv[1], IMREAD_GRAYSCALE);
-    if (src.empty()) return -1;
-
-    GaussianBlur(src, src, Size(5, 5), 0, 0);
-
-    // Ritaglio un quadrato di lato potenza di 2
-    int s = pow(2, (int)log2(min(src.rows, src.cols)));
-    src = src(Rect(0, 0, s, s)).clone();
-    Mat seg = src.clone();
-
-    TNode* root = split(src, Rect(0, 0, s, s));
-    merge(root);
-    segment(root, seg);
-
-    imshow("quad tree", src);
-    imshow("segmented", seg);
-    waitKey(0);
-    return 0;
-}`,
+    codeReference: normalizeCpp(splitMergeCpp),
     cppSkeleton: baseTemplate,
   },
 ];

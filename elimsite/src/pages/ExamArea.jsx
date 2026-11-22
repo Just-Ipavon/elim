@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Clock, Play, Send, Shuffle } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
-import lenaSrc from '../assets/lena.png';
+import { defaultTestImage } from '../data/images';
 import { clearCanvas, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { verifySolution } from '../lib/verify';
 import { applyDiagnostics, diagnoseCode } from '../lib/diagnostics';
+import ImagePicker from '../components/ImagePicker';
 import VerificationResult from '../components/VerificationResult';
 import Callout from '../components/ui/Callout';
 import Panel from '../components/ui/Panel';
@@ -33,6 +34,7 @@ const ExamArea = () => {
   const [deadline, setDeadline] = useState(() => Date.now() + EXAM_DURATION_S * 1000);
   const [timeLeft, setTimeLeft] = useState(EXAM_DURATION_S);
   const [processing, setProcessing] = useState(false);
+  const [testImage, setTestImage] = useState(defaultTestImage);
   const [hasOutput, setHasOutput] = useState(false);
   const cvStatus = useOpenCv();
 
@@ -238,11 +240,23 @@ const ExamArea = () => {
             </button>
           }
         >
+          <div className="mb-3 max-w-[22rem] min-[1800px]:max-w-[28rem]">
+            <ImagePicker
+              id="exam-test-image"
+              selectedId={testImage.id}
+              customLabel={testImage.name}
+              onSelect={(img) => {
+                setTestImage(img);
+                clearCanvas(canvasRef.current);
+                setHasOutput(false);
+              }}
+            />
+          </div>
           <div className="grid max-w-[22rem] grid-cols-2 min-[1800px]:max-w-[28rem] gap-3">
             <figure className="min-w-0">
               <figcaption className="eyebrow mb-1.5">Sorgente</figcaption>
               <div className="overflow-hidden rounded-md border border-line bg-sunken">
-                <img ref={imgRef} src={lenaSrc} alt="Immagine sorgente: Lena" className="block aspect-square w-full object-cover" />
+                <img ref={imgRef} src={testImage.src} alt={`Immagine sorgente: ${testImage.name}`} className="block aspect-square w-full object-cover" />
               </div>
             </figure>
             <figure className="min-w-0">
@@ -260,7 +274,7 @@ const ExamArea = () => {
           <p className={`mt-3 text-xs leading-relaxed ${cvStatus === 'error' ? 'text-err' : 'text-ink-3'}`}>
             {cvStatus === 'error'
               ? 'Impossibile caricare OpenCV.js: controlla la connessione e ricarica la pagina.'
-              : "Il risultato atteso su Lena ti dà un'indicazione sull'algoritmo da implementare."}
+              : "Il risultato atteso sull'immagine selezionata ti dà un'indicazione sull'algoritmo da implementare."}
           </p>
         </Panel>
       </SidePane>
