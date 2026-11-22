@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, Play, Send, Shuffle } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
 import { defaultTestImage } from '../data/images';
-import { clearCanvas, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
+import { clearCanvas, extractCodeParams, getVisualizerReadiness, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { verifySolution } from '../lib/verify';
 import { applyDiagnostics, diagnoseCode } from '../lib/diagnostics';
 import ImagePicker from '../components/ImagePicker';
@@ -44,6 +44,11 @@ const ExamArea = () => {
   const monacoRef = useRef(null);
   const resultRef = useRef(null);
   const [diagnostics, setDiagnostics] = useState([]);
+  const parsedParams = useMemo(() => extractCodeParams(code, selectedAlgo), [code, selectedAlgo]);
+  const visualizerReadiness = useMemo(
+    () => getVisualizerReadiness(code, selectedAlgo, parsedParams),
+    [code, selectedAlgo, parsedParams],
+  );
 
   const setProblems = (list) => {
     setDiagnostics(list);
@@ -100,11 +105,11 @@ const ExamArea = () => {
   };
 
   const runVisualizer = () => {
-    if (cvStatus !== 'ready' || !imgRef.current || !canvasRef.current) return;
+    if (cvStatus !== 'ready' || !visualizerReadiness.ready || !imgRef.current || !canvasRef.current) return;
     setProcessing(true);
     setTimeout(() => {
       try {
-        runVisualAlgorithm(selectedAlgo.id, imgRef.current, canvasRef.current);
+        runVisualAlgorithm(selectedAlgo.id, imgRef.current, canvasRef.current, parsedParams.values);
         setHasOutput(true);
       } catch (err) {
         console.error('OpenCV execution error:', err);
@@ -231,7 +236,7 @@ const ExamArea = () => {
             <button
               type="button"
               onClick={runVisualizer}
-              disabled={cvStatus !== 'ready' || processing}
+              disabled={cvStatus !== 'ready' || !visualizerReadiness.ready || processing}
               className="btn btn-secondary btn-sm"
             >
               <Play size={13} aria-hidden="true" />
@@ -271,10 +276,12 @@ const ExamArea = () => {
               </div>
             </figure>
           </div>
-          <p className={`mt-3 text-xs leading-relaxed ${cvStatus === 'error' ? 'text-err' : 'text-ink-3'}`}>
+          <p className={`mt-3 text-xs leading-relaxed ${cvStatus === 'error' ? 'text-err' : !visualizerReadiness.ready ? 'text-warn' : 'text-ink-3'}`}>
             {cvStatus === 'error'
               ? 'Impossibile caricare OpenCV.js: controlla la connessione e ricarica la pagina.'
-              : "Il risultato atteso sull'immagine selezionata ti dà un'indicazione sull'algoritmo da implementare."}
+              : !visualizerReadiness.ready
+                ? visualizerReadiness.reason
+                : "Il risultato viene eseguito sull'immagine scelta con i parametri del tuo codice."}
           </p>
         </Panel>
       </SidePane>

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, Loader2, Play, RotateCcw } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
 import { defaultTestImage } from '../data/images';
-import { clearCanvas, extractCodeParams, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
+import { clearCanvas, extractCodeParams, getVisualizerReadiness, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { verifySolution } from '../lib/verify';
 import { applyDiagnostics, diagnoseCode } from '../lib/diagnostics';
 import Callout from '../components/ui/Callout';
@@ -41,6 +41,10 @@ const IdeArea = () => {
   const sideRef = useRef(null);
   const referenceOptions = useEditorOptions({ readOnly: true, fontSize: 13, lineHeight: 20, domReadOnly: true });
   const parsedParams = useMemo(() => extractCodeParams(code, selectedAlgo), [code, selectedAlgo]);
+  const visualizerReadiness = useMemo(
+    () => getVisualizerReadiness(code, selectedAlgo, parsedParams),
+    [code, selectedAlgo, parsedParams],
+  );
 
   const setProblems = (list) => {
     setDiagnostics(list);
@@ -75,7 +79,7 @@ const IdeArea = () => {
   };
 
   const runVisualizer = () => {
-    if (cvStatus !== 'ready' || !imgRef.current || !canvasRef.current) return;
+    if (cvStatus !== 'ready' || !visualizerReadiness.ready || !imgRef.current || !canvasRef.current) return;
     setProcessing(true);
     setRunError(null);
     setTimeout(() => {
@@ -260,7 +264,7 @@ const IdeArea = () => {
                 <button
                   type="button"
                   onClick={runVisualizer}
-                  disabled={cvStatus !== 'ready' || processing}
+                  disabled={cvStatus !== 'ready' || !visualizerReadiness.ready || processing}
                   className="btn btn-primary btn-sm h-9 shrink-0 px-3"
                 >
                   {processing || cvStatus === 'loading' ? (
@@ -331,6 +335,12 @@ const IdeArea = () => {
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {!visualizerReadiness.ready && (
+                <Callout tone="warn" role="status">
+                  {visualizerReadiness.reason}
+                </Callout>
               )}
 
               {runError && (

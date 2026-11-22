@@ -742,6 +742,34 @@ export const extractCodeParams = (code, algo) => {
   return { values, entries };
 };
 
+/**
+ * Verifica se il codice nell'editor contiene una soluzione scritta dall'utente
+ * e tutti i parametri richiesti dall'algoritmo prima di avviare il visualizzatore.
+ */
+export const getVisualizerReadiness = (code, algo, parsedParams) => {
+  const normalizeWs = (s) => (s ?? '').replace(/\s+/g, '');
+  const hasCode =
+    Boolean(code?.trim()) &&
+    normalizeWs(code) !== normalizeWs(algo?.cppSkeleton);
+  const missingParams = (parsedParams?.entries ?? []).filter((e) => !e.fromCode);
+
+  if (!hasCode) {
+    return {
+      ready: false,
+      reason: 'Scrivi prima il codice nell’editor a sinistra per avviare il visualizzatore.',
+      missingParams,
+    };
+  }
+  if (missingParams.length > 0) {
+    return {
+      ready: false,
+      reason: `Mancano nel codice i valori di: ${missingParams.map((p) => p.varName).join(', ')}.`,
+      missingParams,
+    };
+  }
+  return { ready: true, reason: null, missingParams: [] };
+};
+
 export const clearCanvas = (canvasEl) => {
   const ctx = canvasEl?.getContext('2d');
   if (ctx) ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
