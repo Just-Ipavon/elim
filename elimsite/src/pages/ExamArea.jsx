@@ -14,8 +14,12 @@ import { scrollIntoViewOnMobile } from '../lib/useIsDesktop';
 const EXAM_DURATION_S = 90 * 60;
 const WARNING_THRESHOLD_S = 5 * 60;
 
+// Harris e Otsu base non sono oggetto d'esame: restano solo in Studio e Pratica.
+const EXCLUDED_FROM_EXAM = new Set(['harris', 'otsu']);
+const examAlgorithms = algorithms.filter((a) => !EXCLUDED_FROM_EXAM.has(a.id));
+
 const pickRandomAlgo = (excludeId) => {
-  const pool = algorithms.length > 1 ? algorithms.filter((a) => a.id !== excludeId) : algorithms;
+  const pool = examAlgorithms.length > 1 ? examAlgorithms.filter((a) => a.id !== excludeId) : examAlgorithms;
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
