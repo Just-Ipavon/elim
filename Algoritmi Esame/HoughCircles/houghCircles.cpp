@@ -17,7 +17,7 @@ void houghCircles(const Mat& src, Mat& dst) {
 
     // 2) Accumulatore 3D: (b, a, r) = (riga centro, colonna centro, raggio)
     int sizes[] = {src.rows, src.cols, rMax - rMin + 1};
-    Mat votes(3, sizes, CV_32S, Scalar(0));
+    Mat votes(3, sizes, CV_8U, Scalar(0));
 
     // 3) Votazione: ogni punto di bordo vota per i centri a distanza r da sé
     for (int y = 0; y < edges.rows; y++)
@@ -29,7 +29,7 @@ void houghCircles(const Mat& src, Mat& dst) {
                         int a = cvRound(x - r * cos(theta));
                         int b = cvRound(y - r * sin(theta));
                         if (a >= 0 && a < src.cols && b >= 0 && b < src.rows)
-                            votes.at<int>(b, a, r - rMin)++;
+                            votes.at<uchar>(b, a, r - rMin)++;
                     }
 
     // 4) Disegno centro e circonferenza dei cerchi con abbastanza voti
@@ -37,7 +37,7 @@ void houghCircles(const Mat& src, Mat& dst) {
     for (int r = rMin; r <= rMax; r++)
         for (int b = 0; b < src.rows; b++)
             for (int a = 0; a < src.cols; a++)
-                if (votes.at<int>(b, a, r - rMin) >= hth) {
+                if (votes.at<uchar>(b, a, r - rMin) >= hth) {
                     circle(dst, Point(a, b), 3, Scalar(0), 2);
                     circle(dst, Point(a, b), r, Scalar(0), 2);
                 }

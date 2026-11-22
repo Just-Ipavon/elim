@@ -406,14 +406,14 @@ export const algorithms = [
       },
       {
         startMatch: "int sizes[] = {src.rows, src.cols, rMax - rMin + 1};",
-        endMatch: "Mat votes(3, sizes, CV_32S, Scalar(0));",
+        endMatch: "Mat votes(3, sizes, CV_8U, Scalar(0));",
         title: "Accumulatore 3D",
-        text: "votes è una Mat a 3 dimensioni: righe × colonne × numero di raggi, di interi (CV_32S) inizializzati a zero da Scalar(0). La cella votes(b, a, r − rMin) conta i voti per un cerchio di centro (a, b) e raggio r.",
+        text: "votes è una Mat a 3 dimensioni: righe × colonne × numero di raggi, di byte (CV_8U) inizializzati a zero da Scalar(0). La cella votes(b, a, r − rMin) conta i voti per un cerchio di centro (a, b) e raggio r.",
         points: [
           "Il costruttore Mat(numero di dimensioni, array delle dimensioni, tipo, valore iniziale) serve per Mat con più di 2 dimensioni.",
           "Il +1 serve perché anche rMax è incluso: i raggi sono rMax − rMin + 1.",
           "r − rMin trasforma il raggio in un indice da 0: con r = 22 si usa il piano 0.",
-          "CV_32S (int) e non CV_8U: un centro può ricevere più di 255 voti.",
+          "CV_8U (uchar, 0–255) come nella versione del corso; se un centro può superare 255 voti conviene usare CV_32S (int).",
         ],
       },
       {
@@ -437,17 +437,17 @@ export const algorithms = [
       },
       {
         startMatch: "if (a >= 0 && a < src.cols && b >= 0 && b < src.rows)",
-        endMatch: "votes.at<int>(b, a, r - rMin)++;",
+        endMatch: "votes.at<uchar>(b, a, r - rMin)++;",
         title: "Votazione · Voto",
         text: "I centri fuori dall'immagine vengono scartati (non hanno una cella nell'accumulatore), gli altri ricevono un voto.",
         points: [
-          "at<int>(b, a, r − rMin): riga, colonna, piano del raggio. Il tipo int corrisponde a CV_32S.",
+          "at<uchar>(b, a, r − rMin): riga, colonna, piano del raggio. Il tipo uchar corrisponde a CV_8U.",
           "La circonferenza ha circa 2πr ≈ 140–160 pixel ma gli angoli sono 360: angoli vicini cadono nella stessa cella, quindi ogni pixel dà al vero centro 2–3 voti.",
         ],
       },
       {
         startMatch: "dst = src.clone();",
-        endMatch: "if (votes.at<int>(b, a, r - rMin) >= hth) {",
+        endMatch: "if (votes.at<uchar>(b, a, r - rMin) >= hth) {",
         title: "Estrazione dei cerchi",
         text: "Su una copia di src si scorre l'accumulatore, piano per piano: ogni cella con almeno hth voti è un cerchio di centro (a, b) e raggio r.",
         note: "Non c'è una non-maximum suppression: anche le celle vicine al vero centro (o con raggio vicino) possono superare la soglia, e allora si vedono più cerchi quasi sovrapposti.",
@@ -554,12 +554,12 @@ export const algorithms = [
       },
       {
         startMatch: "int maxDist = cvRound(hypot(src.rows, src.cols));",
-        endMatch: "Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);",
+        endMatch: "Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_8U);",
         title: "Accumulatore",
         text: "|ρ| non può superare la diagonale dell'immagine (hypot = √(rows² + cols²)). Poiché ρ può essere negativo, l'accumulatore ha 2·maxDist + 1 righe e l'indice di riga è ρ + maxDist. Le colonne sono i 180 angoli possibili: θ e θ + 180° individuano la stessa retta (con ρ di segno opposto).",
         points: [
           "Risoluzione: 1 pixel in ρ e 1° in θ. Una risoluzione più fine distingue rette più vicine ma divide i voti tra più celle.",
-          "CV_32S (int) perché una retta lunga può ricevere centinaia di voti.",
+          "CV_8U (uchar, 0–255) come nella versione del corso; se una retta può superare 255 voti conviene usare CV_32S (int).",
         ],
       },
       {

@@ -15,7 +15,7 @@ void houghLines(const Mat& src, Mat& dst) {
 
     // 2) Accumulatore: righe = rho in [-maxDist, maxDist], colonne = theta in [0, 180)
     int maxDist = cvRound(hypot(src.rows, src.cols));
-    Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);
+    Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_8U);
 
     // 3) Votazione: ogni punto di bordo vota per tutte le rette che ci passano
     for (int y = 0; y < edges.rows; y++)
@@ -25,7 +25,7 @@ void houghLines(const Mat& src, Mat& dst) {
                     double theta = t * CV_PI / 180;
                     int rho = cvRound(x * cos(theta) + y * sin(theta)) + maxDist;
                     if (rho >= 0 && rho < votes.rows) {
-                        votes.at<int>(rho, t)++;
+                        votes.at<uchar>(rho, t)++;
                     }
                 }
 
@@ -33,7 +33,7 @@ void houghLines(const Mat& src, Mat& dst) {
     dst = src.clone();
     for (int r = 0; r < votes.rows; r++)
         for (int t = 0; t < votes.cols; t++)
-            if (votes.at<int>(r, t) >= hth) {
+            if (votes.at<uchar>(r, t) >= hth) {
                 double rho = r - maxDist;
                 double theta = t * CV_PI / 180;
                 double x0 = rho * cos(theta), y0 = rho * sin(theta);  // punto della retta più vicino all'origine

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, Play, Send, Shuffle } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
-import { defaultTestImage } from '../data/images';
+import { pickImageForAlgo } from '../data/images';
 import { clearCanvas, extractCodeParams, getVisualizerReadiness, runVisualAlgorithm, useOpenCv } from '../lib/opencv';
 import { verifySolution } from '../lib/verify';
 import { applyDiagnostics, diagnoseCode } from '../lib/diagnostics';
-import ImagePicker from '../components/ImagePicker';
 import VerificationResult from '../components/VerificationResult';
 import Callout from '../components/ui/Callout';
 import Panel from '../components/ui/Panel';
@@ -34,7 +33,7 @@ const ExamArea = () => {
   const [deadline, setDeadline] = useState(() => Date.now() + EXAM_DURATION_S * 1000);
   const [timeLeft, setTimeLeft] = useState(EXAM_DURATION_S);
   const [processing, setProcessing] = useState(false);
-  const [testImage, setTestImage] = useState(defaultTestImage);
+  const [testImage, setTestImage] = useState(() => pickImageForAlgo(selectedAlgo.id));
   const [hasOutput, setHasOutput] = useState(false);
   const cvStatus = useOpenCv();
 
@@ -84,6 +83,7 @@ const ExamArea = () => {
     if (dirty && !window.confirm('Iniziare un nuovo esame? Il codice scritto finora andrà perso.')) return;
     const algo = pickRandomAlgo(selectedAlgo.id);
     setSelectedAlgo(algo);
+    setTestImage((prev) => pickImageForAlgo(algo.id, prev?.id));
     setCode(algo.cppSkeleton);
     setVerificationResult(null);
     setProblems([]);
@@ -245,18 +245,6 @@ const ExamArea = () => {
             </button>
           }
         >
-          <div className="mb-3 max-w-[22rem] min-[1800px]:max-w-[28rem]">
-            <ImagePicker
-              id="exam-test-image"
-              selectedId={testImage.id}
-              customLabel={testImage.name}
-              onSelect={(img) => {
-                setTestImage(img);
-                clearCanvas(canvasRef.current);
-                setHasOutput(false);
-              }}
-            />
-          </div>
           <div className="grid max-w-[22rem] grid-cols-2 min-[1800px]:max-w-[28rem] gap-3">
             <figure className="min-w-0">
               <figcaption className="eyebrow mb-1.5">Sorgente</figcaption>
