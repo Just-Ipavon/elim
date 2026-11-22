@@ -14,7 +14,7 @@ void houghLines(const Mat& src, Mat& dst) {
     Canny(gauss, edges, cth1, cth2);
 
     // 2) Accumulatore: righe = rho in [-maxDist, maxDist], colonne = theta in [0, 180)
-    int maxDist = hypot(src.rows, src.cols);
+    int maxDist = cvRound(hypot(src.rows, src.cols));
     Mat votes = Mat::zeros(2 * maxDist + 1, 180, CV_32S);
 
     // 3) Votazione: ogni punto di bordo vota per tutte le rette che ci passano
@@ -24,7 +24,9 @@ void houghLines(const Mat& src, Mat& dst) {
                 for (int t = 0; t < 180; t++) {
                     double theta = t * CV_PI / 180;
                     int rho = cvRound(x * cos(theta) + y * sin(theta)) + maxDist;
-                    votes.at<int>(rho, t)++;
+                    if (rho >= 0 && rho < votes.rows) {
+                        votes.at<int>(rho, t)++;
+                    }
                 }
 
     // 4) Disegno le rette con abbastanza voti (da polari a due punti cartesiani)
