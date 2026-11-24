@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { algorithms } from '../data/algorithms';
+import { highlightCpp, stripComments } from '../lib/cppHighlight';
+import { SYNTAX_COLORS } from '../lib/monacoTheme';
 
 const STORAGE_ALGO = 'imageproc-watch-algo';
 const STORAGE_SIZE = 'imageproc-watch-size';
@@ -24,48 +26,8 @@ const store = (key, value) => {
   }
 };
 
-// Divide il codice in righe con indentazione e parti di commento separate,
-// così i commenti si possono attenuare senza un vero evidenziatore.
-const parseLines = (code) => {
-  let inBlock = false;
-  return code.split('\n').map((raw) => {
-    const indent = raw.match(/^ */)[0].length;
-    const text = raw.slice(indent);
-    const parts = [];
-    let rest = text;
-    while (rest) {
-      if (inBlock) {
-        const end = rest.indexOf('*/');
-        if (end === -1) {
-          parts.push({ text: rest, comment: true });
-          rest = '';
-        } else {
-          parts.push({ text: rest.slice(0, end + 2), comment: true });
-          rest = rest.slice(end + 2);
-          inBlock = false;
-        }
-        continue;
-      }
-      const line = rest.indexOf('//');
-      const block = rest.indexOf('/*');
-      const start = [line, block].filter((i) => i !== -1).sort((a, b) => a - b)[0];
-      if (start === undefined) {
-        parts.push({ text: rest, comment: text.startsWith('#') });
-        rest = '';
-      } else {
-        if (start > 0) parts.push({ text: rest.slice(0, start), comment: false });
-        if (start === line) {
-          parts.push({ text: rest.slice(start), comment: true });
-          rest = '';
-        } else {
-          inBlock = true;
-          rest = rest.slice(start);
-        }
-      }
-    }
-    return { indent, parts };
-  });
-};
+// La vista è sempre scura: stessi colori del tema scuro dell'editor.
+const tokenStyle = (kind) => (kind ? { color: `#${SYNTAX_COLORS.dark[kind]}` } : undefined);
 
 const NavButton = ({ onClick, label, children }) => (
   <button
@@ -79,7 +41,8 @@ const NavButton = ({ onClick, label, children }) => (
 );
 
 /**
- * Vista per smartwatch: solo il codice degli algoritmi, uno per volta.
+ * Vista per smartwatch: solo il codice degli algoritmi, uno per volta,
+ * colorato come nell'editor e senza commenti.
  * Schermo tondo e piccolo: tutto è in vw (stessa resa a ogni densità),
  * il codice va a capo invece di scorrere in orizzontale e si cambia
  * algoritmo con le frecce o con uno swipe orizzontale.
@@ -96,7 +59,7 @@ const WatchView = () => {
   const touch = useRef(null);
 
   const algo = algorithms[index];
-  const lines = useMemo(() => parseLines(algo.codeReference), [algo]);
+  const lines = useMemo(() => stripComments(highlightCpp(algo.codeReference)), [algo]);
   const count = algorithms.length;
   const next = algorithms[(index + 1) % count];
 
@@ -172,7 +135,7 @@ const WatchView = () => {
               style={{ paddingLeft: `${line.indent / 2 + 1}ch`, textIndent: '-1ch' }}
             >
               {line.parts.map((part, j) => (
-                <span key={j} className={part.comment ? 'text-ink-3' : undefined}>
+                <span key={j} style={tokenStyle(part.kind)}>
                   {part.text}
                 </span>
               ))}

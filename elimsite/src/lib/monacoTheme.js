@@ -3,20 +3,42 @@ import { useTheme } from '../theme/theme';
 const LIGHT = 'imageproc-light';
 const DARK = 'imageproc-dark';
 
+// Colori della sintassi (senza '#'), condivisi con l'evidenziatore della vista smartwatch.
+export const SYNTAX_COLORS = {
+  light: {
+    text: '1c1b19',
+    comment: '8a867c',
+    keyword: 'b4400f',
+    type: '1f5f8b',
+    string: '3d7a2a',
+    number: '7a3fb0',
+  },
+  dark: {
+    text: 'ecebe6',
+    comment: '7d7a72',
+    keyword: 'f39a6b',
+    type: '8fc1e3',
+    string: 'a9d18e',
+    number: 'c9a6f0',
+  },
+};
+
+const syntaxRules = (c) => [
+  { token: '', foreground: c.text },
+  { token: 'comment', foreground: c.comment, fontStyle: 'italic' },
+  { token: 'keyword', foreground: c.keyword },
+  { token: 'type', foreground: c.type },
+  { token: 'string', foreground: c.string },
+  { token: 'number', foreground: c.number },
+  { token: 'constant', foreground: c.number },
+];
+
 // Temi Monaco allineati ai token di index.css: sintassi sobria, un solo accento caldo.
 export const defineEditorThemes = (monaco) => {
   monaco.editor.defineTheme(LIGHT, {
     base: 'vs',
     inherit: true,
-    rules: [
-      { token: '', foreground: '1c1b19' },
-      { token: 'comment', foreground: '8a867c', fontStyle: 'italic' },
-      { token: 'keyword', foreground: 'b4400f' },
-      { token: 'type', foreground: '1f5f8b' },
-      { token: 'string', foreground: '3d7a2a' },
-      { token: 'number', foreground: '7a3fb0' },
-      { token: 'constant', foreground: '7a3fb0' },
-    ],
+    rules: syntaxRules(SYNTAX_COLORS.light),
     colors: {
       'editor.background': '#ffffff',
       'editor.foreground': '#1c1b19',
@@ -36,15 +58,7 @@ export const defineEditorThemes = (monaco) => {
   monaco.editor.defineTheme(DARK, {
     base: 'vs-dark',
     inherit: true,
-    rules: [
-      { token: '', foreground: 'ecebe6' },
-      { token: 'comment', foreground: '7d7a72', fontStyle: 'italic' },
-      { token: 'keyword', foreground: 'f39a6b' },
-      { token: 'type', foreground: '8fc1e3' },
-      { token: 'string', foreground: 'a9d18e' },
-      { token: 'number', foreground: 'c9a6f0' },
-      { token: 'constant', foreground: 'c9a6f0' },
-    ],
+    rules: syntaxRules(SYNTAX_COLORS.dark),
     colors: {
       'editor.background': '#1b1b19',
       'editor.foreground': '#ecebe6',
