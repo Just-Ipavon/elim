@@ -7,7 +7,7 @@ Canny, Harris, Hough (cerchi e rette), K-means, Otsu, Otsu multilivello, Region 
 | --- | --- | --- |
 | **Studio** | `#/study` | Codice C++ di riferimento con blocchi evidenziati e spiegazioni cliccabili, sezione "Come funziona" e visualizzatore OpenCV.js su Lena con soglie regolabili. |
 | **Pratica** | `#/ide` | Editor Monaco per scrivere la propria implementazione, riferimento consultabile a fianco, verifica con punteggio ed errori sottolineati nel codice. |
-| **Esame** | `#/exam` | Algoritmo estratto a caso, timer di 90 minuti, nessuna soluzione visibile: gli errori vengono segnalati senza rivelare le righe del riferimento. |
+| **Esame** | `#/exam` | Algoritmo estratto a caso, timer di 60 minuti, nessuna soluzione visibile: gli errori vengono segnalati senza rivelare le righe del riferimento. |
 
 Altre caratteristiche:
 

@@ -11,7 +11,7 @@ import Panel from '../components/ui/Panel';
 import { EditorPanel, ResultEmpty, SidePane, WorkspaceShell } from '../components/workspace/Workspace';
 import { scrollIntoViewOnMobile } from '../lib/useIsDesktop';
 
-const EXAM_DURATION_S = 90 * 60;
+const EXAM_DURATION_S = 60 * 60;
 const WARNING_THRESHOLD_S = 5 * 60;
 
 // Harris e Otsu base non sono oggetto d'esame: restano solo in Studio e Pratica.

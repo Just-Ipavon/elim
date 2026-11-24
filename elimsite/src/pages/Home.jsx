@@ -28,7 +28,7 @@ const modes = [
     to: '/exam',
     name: 'Esame',
     cta: 'Avvia una simulazione',
-    text: 'Un algoritmo estratto a caso, 90 minuti di tempo e nessuna soluzione visibile. Alla consegna ricevi l\u2019esito della verifica.',
+    text: 'Un algoritmo estratto a caso, 60 minuti di tempo e nessuna soluzione visibile. Alla consegna ricevi l\u2019esito della verifica.',
   },
 ];
 
