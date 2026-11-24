@@ -44,7 +44,7 @@ senza regole di rewrite.
 ### Esame (`ExamArea.jsx`)
 
 - Algoritmo estratto a caso (`pickRandomAlgo`, mai lo stesso due volte di fila con "Nuovo esame").
-- Timer di 90 minuti (`EXAM_DURATION_S`), che diventa di avviso negli ultimi 5 minuti; allo
+- Timer di 60 minuti (`EXAM_DURATION_S`), che diventa di avviso negli ultimi 5 minuti; allo
   scadere la consegna è disabilitata.
 - Nessun codice di riferimento visibile: `diagnoseCode` è chiamato con `revealReference: false`.
 - "Mostra risultato atteso" esegue il visualizzatore con i parametri di default.
